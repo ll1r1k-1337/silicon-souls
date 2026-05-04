@@ -1,0 +1,49 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e10]:
+          - heading "Silicon Souls" [level=1] [ref=e11]
+          - paragraph [ref=e12]: AI Agent Workspace
+      - generic [ref=e13]:
+        - generic [ref=e14]: Active Agents
+        - button "H HR Manager @hr" [ref=e15] [cursor=pointer]:
+          - generic [ref=e17]: H
+          - generic [ref=e19]:
+            - generic [ref=e20]: HR Manager
+            - generic [ref=e21]: "@hr"
+        - button "A Aisha Rahman @vue_vanguard" [ref=e22] [cursor=pointer]:
+          - generic [ref=e24]: A
+          - generic [ref=e26]:
+            - generic [ref=e27]: Aisha Rahman
+            - generic [ref=e28]: "@vue_vanguard"
+      - button "Settings LLM Provider" [ref=e30] [cursor=pointer]:
+        - img [ref=e32]
+        - generic [ref=e35]:
+          - generic [ref=e36]: Settings
+          - generic [ref=e37]: LLM Provider
+    - main [ref=e38]:
+      - generic [ref=e39]:
+        - complementary [ref=e40]:
+          - generic [ref=e42]:
+            - generic [ref=e76]:
+              - generic [ref=e77]: U
+              - generic [ref=e79]: "#0c6b0c03-79f9-4f2e-84f9-62378cae6a4d"
+            - generic [ref=e80]:
+              - generic [ref=e81]: A
+              - generic [ref=e83]: 💡 Please mention an agent using @handle. Type @ to see available agents.
+          - generic [ref=e44]:
+            - generic [ref=e47]:
+              - 'textbox "Message an agent, or reference #documents..." [ref=e48]': "#0c6b0c03-79f9-4f2e-84f9-62378cae6a4d"
+              - button [active] [ref=e49] [cursor=pointer]:
+                - img [ref=e50]
+            - generic [ref=e52]:
+              - generic [ref=e53]: "Type @ for agents or # for documents"
+              - generic [ref=e54]: Enter to send
+        - main [ref=e55]
+  - generic [ref=e57]:
+    - generic "Toggle devtools panel" [ref=e58] [cursor=pointer]:
+      - img [ref=e59]
+    - generic "Toggle Component Inspector" [ref=e64] [cursor=pointer]:
+      - img [ref=e65]

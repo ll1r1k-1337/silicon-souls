@@ -1,13 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { ChatOpenAI } from '@langchain/openai';
+import {
+  SystemMessage,
+  ToolMessage,
+  type BaseMessageLike,
+} from '@langchain/core/messages';
 import { AgentsService } from '../agents/agents.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { CandidateGeneratorService } from './candidate-generator.service.js';
+import { DocumentsService } from '../documents/documents.service.js';
+import { createDocumentTools } from '../llm/tools/document.tools.js';
 import type { Response } from 'express';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+}
+
+interface InvokableDocumentTool {
+  name: string;
+  invoke(input: unknown): Promise<unknown>;
 }
 
 @Injectable()
@@ -16,6 +28,7 @@ export class ChatService {
     private readonly agentsService: AgentsService,
     private readonly settingsService: SettingsService,
     private readonly candidateGenerator: CandidateGeneratorService,
+    private readonly documentsService: DocumentsService,
   ) {}
 
   async handleChat(messages: ChatMessage[], res: Response): Promise<void> {
@@ -153,16 +166,43 @@ export class ChatService {
       streaming: true,
     });
 
-    const langchainMessages = [
-      {
-        role: 'system' as const,
-        content: `You are ${agent.name} (@${agent.handle}). ${agent.personality}`,
-      },
-      ...messages.map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      })),
-    ];
+    const langchainMessages = await this.buildLangChainMessages(
+      agent,
+      messages,
+    );
+
+    const tools = createDocumentTools(this.documentsService);
+    const llmWithTools = llm.bindTools(tools, { tool_choice: 'auto' });
+    const toolDecision = await llmWithTools.invoke(langchainMessages);
+    const toolCalls = toolDecision.tool_calls ?? [];
+
+    if (toolCalls.length === 0) {
+      this.sendTextStream(res, this.contentToText(toolDecision.content));
+      return;
+    }
+
+    langchainMessages.push(toolDecision);
+
+    const toolMap = new Map<string, InvokableDocumentTool>(
+      tools.map((documentTool) => [
+        documentTool.name,
+        documentTool as InvokableDocumentTool,
+      ]),
+    );
+    for (const toolCall of toolCalls.slice(0, 3)) {
+      const documentTool = toolMap.get(toolCall.name);
+      if (!documentTool) continue;
+
+      const toolResult = await documentTool.invoke(toolCall);
+      langchainMessages.push(
+        toolResult instanceof ToolMessage
+          ? toolResult
+          : new ToolMessage({
+              content: this.contentToText(toolResult),
+              tool_call_id: toolCall.id ?? toolCall.name,
+            }),
+      );
+    }
 
     const stream = await llm.stream(langchainMessages);
 
@@ -182,6 +222,77 @@ export class ChatService {
     res.write(`d:${finishData}\n`);
 
     res.end();
+  }
+
+  private async buildLangChainMessages(
+    agent: { personality: string; name: string; handle: string },
+    messages: ChatMessage[],
+  ): Promise<BaseMessageLike[]> {
+    const systemMessages: BaseMessageLike[] = [
+      new SystemMessage(
+        `You are ${agent.name} (@${agent.handle}). ${agent.personality}\n\n` +
+          'You can create and edit specification documents with the available document tools. ' +
+          'When a document tool returns a UUID, include it in your response prefixed with # so the workspace can open it.',
+      ),
+    ];
+
+    const documentContext = await this.buildDocumentContextMessage(messages);
+    if (documentContext) {
+      systemMessages.push(documentContext);
+    }
+
+    return [
+      ...systemMessages,
+      ...messages.map((message) => ({
+        role: message.role as 'user' | 'assistant',
+        content: message.content,
+      })),
+    ];
+  }
+
+  private async buildDocumentContextMessage(
+    messages: ChatMessage[],
+  ): Promise<SystemMessage | null> {
+    const lastUserMessage = messages[messages.length - 1]?.content ?? '';
+    const docMatches = [
+      ...lastUserMessage.matchAll(/(?:^|\s)#([0-9a-fA-F-]{36})/g),
+    ];
+    const docIds = [...new Set(docMatches.map((match) => match[1]))];
+    if (docIds.length === 0) return null;
+
+    const referencedDocs =
+      await this.documentsService.getDocumentsByIds(docIds);
+    if (referencedDocs.length === 0) return null;
+
+    return new SystemMessage(
+      `The user referenced the following documents in their message. Use this context to answer:\n\n${referencedDocs
+        .map(
+          (doc) =>
+            `Title: ${doc.title}\nContent: ${doc.contentMarkdown ?? ''}`,
+        )
+        .join('\n\n')}`,
+    );
+  }
+
+  private contentToText(content: unknown): string {
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+      return content
+        .map((part) => {
+          if (typeof part === 'string') return part;
+          if (
+            part &&
+            typeof part === 'object' &&
+            'text' in part &&
+            typeof (part as { text?: unknown }).text === 'string'
+          ) {
+            return (part as { text: string }).text;
+          }
+          return '';
+        })
+        .join('');
+    }
+    return content == null ? '' : String(content);
   }
 
   private sendTextStream(res: Response, text: string): void {

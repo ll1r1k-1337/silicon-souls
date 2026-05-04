@@ -1,4 +1,6 @@
 import {
+  boolean,
+  customType,
   pgTable,
   varchar,
   uuid,
@@ -6,6 +8,18 @@ import {
   timestamp,
   jsonb,
 } from 'drizzle-orm/pg-core';
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+  toDriver(val: Buffer) {
+    return val;
+  },
+  fromDriver(val: Buffer) {
+    return val;
+  },
+});
 
 /* ── system_settings ──────────────────────────────────── */
 export const systemSettings = pgTable('system_settings', {
@@ -44,4 +58,16 @@ export const messages = pgTable('messages', {
   senderId: uuid('sender_id').references(() => agents.id),
   content: text('content').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const documents = pgTable('documents', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  title: varchar('title', { length: 255 })
+    .notNull()
+    .default('New Specification'),
+  contentMarkdown: text('content_markdown').default(''),
+  yjsState: bytea('yjs_state'),
+  isApproved: boolean('is_approved').default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
 });

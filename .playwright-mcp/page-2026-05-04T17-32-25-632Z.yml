@@ -1,0 +1,43 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e10]:
+          - heading "Silicon Souls" [level=1] [ref=e108]
+          - paragraph [ref=e12]: AI Agent Workspace
+      - generic [ref=e13]:
+        - generic [ref=e14]: Active Agents
+        - button "H HR Manager @hr" [ref=e109] [cursor=pointer]:
+          - generic [ref=e17]: H
+          - generic [ref=e19]:
+            - generic [ref=e20]: HR Manager
+            - generic [ref=e21]: "@hr"
+        - button "A Aisha Rahman @vue_vanguard" [ref=e110] [cursor=pointer]:
+          - generic [ref=e24]: A
+          - generic [ref=e26]:
+            - generic [ref=e27]: Aisha Rahman
+            - generic [ref=e28]: "@vue_vanguard"
+      - button "Settings LLM Provider" [ref=e111] [cursor=pointer]:
+        - img [ref=e32]
+        - generic [ref=e35]:
+          - generic [ref=e36]: Settings
+          - generic [ref=e37]: LLM Provider
+    - main [ref=e38]:
+      - generic [ref=e39]:
+        - complementary [ref=e40]:
+          - generic [ref=e44]:
+            - generic [ref=e47]:
+              - 'textbox "Message an agent, or reference #documents..." [ref=e112]'
+              - button [disabled] [ref=e49] [cursor=pointer]:
+                - img [ref=e50]
+            - generic [ref=e52]:
+              - generic [ref=e53]: "Type @ for agents or # for documents"
+              - generic [ref=e54]: Enter to send
+        - main [ref=e55]:
+          - generic [ref=e56]: Select or ask an agent to create a document.
+  - generic [ref=e57]:
+    - generic "Toggle devtools panel" [ref=e58] [cursor=pointer]:
+      - img [ref=e59]
+    - generic "Toggle Component Inspector" [ref=e64] [cursor=pointer]:
+      - img [ref=e65]

@@ -1,0 +1,45 @@
+[   77181ms] [WARNING] [Vue warn]: Unhandled error during execution of watcher callback 
+  at <DocumentEditor key="0c6b0c03-79f9-4f2e-84f9-62378cae6a4d" doc-id="0c6b0c03-79f9-4f2e-84f9-62378cae6a4d" onAsk=fn<handleAskSelectedText> > 
+  at <WorkspaceView > 
+  at <App> @ http://127.0.0.1:5179/@vite/client:509
+[   77183ms] [WARNING] [Vue warn]: Unhandled error during execution of setup function 
+  at <DocumentEditor key="0c6b0c03-79f9-4f2e-84f9-62378cae6a4d" doc-id="0c6b0c03-79f9-4f2e-84f9-62378cae6a4d" onAsk=fn<handleAskSelectedText> > 
+  at <WorkspaceView > 
+  at <App> @ http://127.0.0.1:5179/@vite/client:509
+[   77184ms] [WARNING] [Vue warn]: Unhandled error during execution of component update 
+  at <WorkspaceView > 
+  at <App> @ http://127.0.0.1:5179/@vite/client:509
+[   77193ms] TypeError: Cannot read properties of undefined (reading 'doc')
+    at createDecorations (http://127.0.0.1:5179/node_modules/.vite/deps/@tiptap_extension-collaboration-cursor.js?v=f7364424:210:19)
+    at Plugin.init (http://127.0.0.1:5179/node_modules/.vite/deps/@tiptap_extension-collaboration-cursor.js?v=f7364424:259:11)
+    at EditorState.reconfigure (http://127.0.0.1:5179/node_modules/.vite/deps/dist-Cfb-9Fy4.js?v=f7364424:5734:72)
+    at Editor.createView (http://127.0.0.1:5179/node_modules/.vite/deps/dist-Cfb-9Fy4.js?v=f7364424:15026:31)
+    at Editor.mount (http://127.0.0.1:5179/node_modules/.vite/deps/dist-Cfb-9Fy4.js?v=f7364424:14789:8)
+    at new Editor (http://127.0.0.1:5179/node_modules/.vite/deps/dist-Cfb-9Fy4.js?v=f7364424:14782:34)
+    at new Editor (http://127.0.0.1:5179/node_modules/.vite/deps/@tiptap_vue-3.js?v=f7364424:24:3)
+    at setupEditor (http://127.0.0.1:5179/src/components/DocumentEditor.vue:95:19)
+    at watch.immediate (http://127.0.0.1:5179/src/components/DocumentEditor.vue:153:34)
+    at callWithErrorHandling (http://127.0.0.1:5179/node_modules/.vite/deps/vue.runtime.esm-bundler-BvoXUmaf.js?v=f7364424:1883:17)
+[   77193ms] TypeError: Cannot read properties of undefined (reading 'doc')
+    at createDecorations (http://127.0.0.1:5179/node_modules/.vite/deps/@tiptap_extension-collaboration-cursor.js?v=f7364424:210:19)
+    at Plugin.init (http://127.0.0.1:5179/node_modules/.vite/deps/@tiptap_extension-collaboration-cursor.js?v=f7364424:259:11)
+    at EditorState.reconfigure (http://127.0.0.1:5179/node_modules/.vite/deps/dist-Cfb-9Fy4.js?v=f7364424:5734:72)
+    at Editor.createView (http://127.0.0.1:5179/node_modules/.vite/deps/dist-Cfb-9Fy4.js?v=f7364424:15026:31)
+    at Editor.mount (http://127.0.0.1:5179/node_modules/.vite/deps/dist-Cfb-9Fy4.js?v=f7364424:14789:8)
+    at new Editor (http://127.0.0.1:5179/node_modules/.vite/deps/dist-Cfb-9Fy4.js?v=f7364424:14782:34)
+    at new Editor (http://127.0.0.1:5179/node_modules/.vite/deps/@tiptap_vue-3.js?v=f7364424:24:3)
+    at setupEditor (http://127.0.0.1:5179/src/components/DocumentEditor.vue:95:19)
+    at watch.immediate (http://127.0.0.1:5179/src/components/DocumentEditor.vue:153:34)
+    at callWithErrorHandling (http://127.0.0.1:5179/node_modules/.vite/deps/vue.runtime.esm-bundler-BvoXUmaf.js?v=f7364424:1883:17)
+[   77194ms] TypeError: Cannot read properties of undefined (reading 'doc')
+    at createDecorations (http://127.0.0.1:5179/node_modules/.vite/deps/@tiptap_extension-collaboration-cursor.js?v=f7364424:210:19)
+    at Plugin.init (http://127.0.0.1:5179/node_modules/.vite/deps/@tiptap_extension-collaboration-cursor.js?v=f7364424:259:11)
+    at EditorState.reconfigure (http://127.0.0.1:5179/node_modules/.vite/deps/dist-Cfb-9Fy4.js?v=f7364424:5734:72)
+    at Editor.createView (http://127.0.0.1:5179/node_modules/.vite/deps/dist-Cfb-9Fy4.js?v=f7364424:15026:31)
+    at Editor.mount (http://127.0.0.1:5179/node_modules/.vite/deps/dist-Cfb-9Fy4.js?v=f7364424:14789:8)
+    at new Editor (http://127.0.0.1:5179/node_modules/.vite/deps/dist-Cfb-9Fy4.js?v=f7364424:14782:34)
+    at new Editor (http://127.0.0.1:5179/node_modules/.vite/deps/@tiptap_vue-3.js?v=f7364424:24:3)
+    at setupEditor (http://127.0.0.1:5179/src/components/DocumentEditor.vue:95:19)
+    at watch.immediate (http://127.0.0.1:5179/src/components/DocumentEditor.vue:153:34)
+    at callWithErrorHandling (http://127.0.0.1:5179/node_modules/.vite/deps/vue.runtime.esm-bundler-BvoXUmaf.js?v=f7364424:1883:17)
+[  198453ms] [ERROR] Yjs was already imported. This breaks constructor checks and will lead to issues! - https://github.com/yjs/yjs/issues/438 @ http://127.0.0.1:5179/@vite/client:509

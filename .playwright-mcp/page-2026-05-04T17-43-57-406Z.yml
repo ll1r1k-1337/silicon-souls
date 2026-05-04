@@ -1,0 +1,29 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e10]:
+          - heading "Silicon Souls" [level=1] [ref=e11]
+          - paragraph [ref=e12]: AI Agent Workspace
+      - generic [ref=e14]: Active Agents
+      - button "Settings LLM Provider" [ref=e16] [cursor=pointer]:
+        - img [ref=e18]
+        - generic [ref=e21]:
+          - generic [ref=e22]: Settings
+          - generic [ref=e23]: LLM Provider
+    - main [ref=e24]:
+      - generic [ref=e25]:
+        - complementary [ref=e26]:
+          - generic [ref=e30]:
+            - generic [ref=e33]:
+              - 'textbox "Message an agent, or reference #documents..." [ref=e34]'
+              - button [disabled] [ref=e35] [cursor=pointer]:
+                - img [ref=e36]
+            - generic [ref=e38]:
+              - generic [ref=e39]: "Type @ for agents or # for documents"
+              - generic [ref=e40]: Enter to send
+        - main [ref=e41]:
+          - generic [ref=e42]: Select or ask an agent to create a document.
+  - generic "Toggle devtools panel" [ref=e44] [cursor=pointer]:
+    - img [ref=e45]

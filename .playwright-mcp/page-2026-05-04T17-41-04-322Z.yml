@@ -1,0 +1,48 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e10]:
+          - heading "Silicon Souls" [level=1] [ref=e11]
+          - paragraph [ref=e12]: AI Agent Workspace
+      - generic [ref=e13]:
+        - generic [ref=e14]: Active Agents
+        - button "H HR Manager @hr" [ref=e55] [cursor=pointer]:
+          - generic [ref=e57]: H
+          - generic [ref=e59]:
+            - generic [ref=e60]: HR Manager
+            - generic [ref=e61]: "@hr"
+        - button "A Aisha Rahman @vue_vanguard" [ref=e62] [cursor=pointer]:
+          - generic [ref=e64]: A
+          - generic [ref=e66]:
+            - generic [ref=e67]: Aisha Rahman
+            - generic [ref=e68]: "@vue_vanguard"
+      - button "Settings LLM Provider" [ref=e16] [cursor=pointer]:
+        - img [ref=e18]
+        - generic [ref=e21]:
+          - generic [ref=e22]: Settings
+          - generic [ref=e23]: LLM Provider
+    - main [ref=e24]:
+      - generic [ref=e25]:
+        - complementary [ref=e26]:
+          - generic [ref=e28]:
+            - generic [ref=e69]:
+              - generic [ref=e70]: U
+              - generic [ref=e72]: "@hr hire a senior backend engineer for a TypeScript/NestJS and PostgreSQL product team"
+            - generic [ref=e74]: A
+          - generic [ref=e30]:
+            - generic [ref=e33]:
+              - 'textbox "Message an agent, or reference #documents..." [active] [ref=e34]'
+              - button [disabled] [ref=e35] [cursor=pointer]:
+                - img [ref=e36]
+            - generic [ref=e38]:
+              - generic [ref=e39]: "Type @ for agents or # for documents"
+              - generic [ref=e40]: Enter to send
+        - main [ref=e41]:
+          - generic [ref=e42]: Select or ask an agent to create a document.
+  - generic [ref=e43]:
+    - generic "Toggle devtools panel" [ref=e44] [cursor=pointer]:
+      - img [ref=e45]
+    - generic "Toggle Component Inspector" [ref=e50] [cursor=pointer]:
+      - img [ref=e51]

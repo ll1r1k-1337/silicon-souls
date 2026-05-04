@@ -1,0 +1,46 @@
+[     732ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/agents/active:0
+[     732ms] [ERROR] Failed to fetch agents: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at refresh (http://localhost:5173/src/composables/useAgents.ts:9:27) @ http://localhost:5173/src/composables/useAgents.ts:11
+[     733ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/settings:0
+[     733ms] [ERROR] Failed to fetch settings: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at fetchSettings (http://localhost:5173/src/composables/useSettings.ts:15:27) @ http://localhost:5173/src/composables/useSettings.ts:24
+[     733ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/documents:0
+[     734ms] [ERROR] Failed to fetch documents: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at refreshDocuments (http://localhost:5173/src/components/ChatInput.vue:62:28) @ http://localhost:5173/src/components/ChatInput.vue:64
+[     734ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/agents/active:0
+[     734ms] [ERROR] Failed to fetch agents: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at refresh (http://localhost:5173/src/composables/useAgents.ts:9:27) @ http://localhost:5173/src/composables/useAgents.ts:11
+[     735ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/agents/active:0
+[     735ms] [ERROR] Failed to fetch agents: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at refresh (http://localhost:5173/src/composables/useAgents.ts:9:27) @ http://localhost:5173/src/composables/useAgents.ts:11
+[   23479ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/agents/active:0
+[   23479ms] [ERROR] Failed to fetch agents: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at refresh (http://localhost:5173/src/composables/useAgents.ts:9:27) @ http://localhost:5173/src/composables/useAgents.ts:11
+[   23495ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/agents/active:0
+[   23496ms] [ERROR] Failed to fetch agents: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at refresh (http://localhost:5173/src/composables/useAgents.ts:9:27) @ http://localhost:5173/src/composables/useAgents.ts:11
+[   23496ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/agents/active:0
+[   23497ms] [ERROR] Failed to fetch agents: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at refresh (http://localhost:5173/src/composables/useAgents.ts:9:27) @ http://localhost:5173/src/composables/useAgents.ts:11
+[   23499ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/settings:0
+[   23500ms] [ERROR] Failed to fetch settings: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at fetchSettings (http://localhost:5173/src/composables/useSettings.ts:15:27) @ http://localhost:5173/src/composables/useSettings.ts:24
+[   23500ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/documents:0
+[   23501ms] [ERROR] Failed to fetch documents: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at refreshDocuments (http://localhost:5173/src/components/ChatInput.vue:62:28) @ http://localhost:5173/src/components/ChatInput.vue:64
+[   39403ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/agents/active:0
+[   39404ms] [ERROR] Failed to fetch agents: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at refresh (http://localhost:5173/src/composables/useAgents.ts:9:27) @ http://localhost:5173/src/composables/useAgents.ts:11
+[   39404ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/agents/active:0
+[   39404ms] [ERROR] Failed to fetch agents: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at refresh (http://localhost:5173/src/composables/useAgents.ts:9:27) @ http://localhost:5173/src/composables/useAgents.ts:11
+[   39405ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/agents/active:0
+[   39405ms] [ERROR] Failed to fetch agents: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at refresh (http://localhost:5173/src/composables/useAgents.ts:9:27) @ http://localhost:5173/src/composables/useAgents.ts:11
+[   39406ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/settings:0
+[   39406ms] [ERROR] Failed to fetch settings: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at fetchSettings (http://localhost:5173/src/composables/useSettings.ts:15:27) @ http://localhost:5173/src/composables/useSettings.ts:24
+[   39407ms] [ERROR] Failed to load resource: the server responded with a status of 502 (Bad Gateway) @ http://localhost:5173/api/documents:0
+[   39408ms] [ERROR] Failed to fetch documents: SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input
+    at refreshDocuments (http://localhost:5173/src/components/ChatInput.vue:62:28) @ http://localhost:5173/src/components/ChatInput.vue:64
+[   40165ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5173/:0

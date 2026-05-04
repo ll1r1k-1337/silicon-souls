@@ -17,8 +17,16 @@
   "dependencies": {
     "@ai-sdk/vue": "^3.0.170",
     "@headlessui/vue": "^1.7.23",
+    "@tiptap/extension-collaboration": "^3.0.0",
+    "@tiptap/extension-collaboration-cursor": "^3.0.0",
+    "@tiptap/starter-kit": "^3.0.0",
+    "@tiptap/vue-3": "^3.0.0",
+    "@tiptap/y-tiptap": "^3.0.0",
     "ai": "^6.0.170",
-    "vue": "^3.5.32"
+    "socket.io-client": "^4.8.1",
+    "vue": "^3.5.32",
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.27"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.4",

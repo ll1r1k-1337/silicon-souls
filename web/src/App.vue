@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import ChatView from './components/ChatView.vue'
+import WorkspaceView from './views/WorkspaceView.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import { useAgents } from '@/composables/useAgents'
 
@@ -125,7 +125,7 @@ const { agents } = useAgents()
         </button>
       </header>
 
-      <ChatView />
+      <WorkspaceView />
     </main>
 
     <!-- Settings Modal -->

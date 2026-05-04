@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ChatOpenAI } from '@langchain/openai';
+import type { BaseMessageLike } from '@langchain/core/messages';
 import { z } from 'zod';
 import { AgentsService } from '../agents/agents.service.js';
 import type { LlmSettings } from '../settings/settings.service.js';
@@ -20,6 +21,8 @@ const candidateSchema = z.object({
     )
     .length(3),
 });
+
+type CandidateGenerationResult = z.infer<typeof candidateSchema>;
 
 @Injectable()
 export class CandidateGeneratorService {
@@ -47,17 +50,37 @@ export class CandidateGeneratorService {
       configuration: llmSettings.baseURL
         ? { baseURL: llmSettings.baseURL }
         : undefined,
+      maxRetries: 1,
+      maxTokens: 1200,
+      temperature: 0,
+      timeout: 60_000,
     });
 
-    const structuredLlm = llm.withStructuredOutput(candidateSchema);
-
-    const result = await structuredLlm.invoke([
+    const messages: BaseMessageLike[] = [
       {
         role: 'system',
-        content: `You are a professional HR Manager at Silicon Souls. When the user asks you to find or hire someone for a role, generate exactly 3 realistic, diverse candidates. Each candidate should have a unique handle (lowercase, underscores allowed), a realistic name, relevant skills, and a thoughtful HR assessment.`,
+        content:
+          'You are a professional HR Manager at Silicon Souls. When the user asks you to find or hire someone for a role, generate exactly 3 realistic, diverse candidates. Each candidate should have a unique handle (lowercase, underscores allowed), a realistic name, relevant skills, and a thoughtful HR assessment.\n\n' +
+          'Return only strict JSON. Do not wrap it in markdown. Do not use JSON5. Do not include comments or trailing commas. Use this exact shape:\n' +
+          '{\n' +
+          '  "replyMessage": "A short HR reply message",\n' +
+          '  "candidates": [\n' +
+          '    {\n' +
+          '      "handle": "lowercase_unique_handle",\n' +
+          '      "name": "Full Name",\n' +
+          '      "role": "Job title",\n' +
+          '      "personality": "A paragraph describing work style",\n' +
+          '      "skills": ["Skill 1", "Skill 2", "Skill 3"],\n' +
+          '      "expectedSalary": "$000,000",\n' +
+          '      "hrComment": "HR assessment comment"\n' +
+          '    }\n' +
+          '  ]\n' +
+          '}',
       },
       { role: 'user', content: userMessage },
-    ]);
+    ];
+
+    const result = await this.generateCandidateJson(llm, messages);
 
     // Save candidates to DB
     const saved = await this.agentsService.createCandidates(
@@ -84,5 +107,94 @@ export class CandidateGeneratorService {
         hrComment: result.candidates[i].hrComment,
       })),
     };
+  }
+
+  private async generateCandidateJson(
+    llm: ChatOpenAI,
+    messages: BaseMessageLike[],
+  ): Promise<CandidateGenerationResult> {
+    const response = await llm.invoke(messages);
+    return this.parseCandidateGeneration(this.contentToText(response.content));
+  }
+
+  private parseCandidateGeneration(text: string): CandidateGenerationResult {
+    const jsonText = this.extractJsonText(text);
+    return candidateSchema.parse(JSON.parse(jsonText));
+  }
+
+  private extractJsonText(text: string): string {
+    let jsonText = text.trim();
+    const fenced = jsonText.match(/```(?:json|json5)?\s*([\s\S]*?)```/i);
+    if (fenced) {
+      jsonText = fenced[1].trim();
+    }
+
+    const start = jsonText.indexOf('{');
+    const end = jsonText.lastIndexOf('}');
+    if (start !== -1 && end !== -1 && end > start) {
+      jsonText = jsonText.slice(start, end + 1);
+    }
+
+    return this.stripJsonComments(jsonText).replace(/,\s*([}\]])/g, '$1');
+  }
+
+  private stripJsonComments(text: string): string {
+    let result = '';
+    let inString = false;
+    let escaped = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const next = text[i + 1];
+
+      if (escaped) {
+        result += char;
+        escaped = false;
+        continue;
+      }
+
+      if (char === '\\' && inString) {
+        result += char;
+        escaped = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = !inString;
+        result += char;
+        continue;
+      }
+
+      if (!inString && char === '/' && next === '/') {
+        while (i < text.length && text[i] !== '\n') i++;
+        result += '\n';
+        continue;
+      }
+
+      result += char;
+    }
+
+    return result;
+  }
+
+  private contentToText(content: unknown): string {
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+      return content
+        .map((part) => {
+          if (typeof part === 'string') return part;
+          if (
+            part &&
+            typeof part === 'object' &&
+            'text' in part &&
+            typeof (part as { text?: unknown }).text === 'string'
+          ) {
+            return (part as { text: string }).text;
+          }
+          return '';
+        })
+        .join('');
+    }
+    return content == null ? '' : String(content);
   }
 }
