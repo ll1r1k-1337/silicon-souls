@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@sdd/domain": ["packages/domain/src/index.ts"],
+      "@sdd/schemas": ["packages/schemas/src/index.ts"],
+      "@sdd/llm-contracts": ["packages/llm-contracts/src/index.ts"],
+      "@sdd/spec-format": ["packages/spec-format/src/index.ts"]
+    }
+  }
+}

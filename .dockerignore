@@ -1,0 +1,17 @@
+.git
+.gitignore
+node_modules
+**/node_modules
+dist
+**/dist
+coverage
+**/coverage
+.env
+.env.local
+.DS_Store
+.turbo
+.vite
+**/.vite
+*.log
+tmp
+apps/api/migrations/meta
