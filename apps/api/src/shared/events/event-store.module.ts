@@ -1,9 +1,10 @@
 import { Global, Module } from '@nestjs/common';
 import { EventStoreService } from './event-store.service';
+import { RealtimeEventsService } from './realtime-events.service';
 
 @Global()
 @Module({
-  providers: [EventStoreService],
-  exports: [EventStoreService],
+  providers: [EventStoreService, RealtimeEventsService],
+  exports: [EventStoreService, RealtimeEventsService],
 })
 export class EventStoreModule {}

@@ -25,10 +25,10 @@ importers:
     dependencies:
       '@langchain/core':
         specifier: ^0.3.79
-        version: 0.3.80(openai@5.12.2(zod@3.25.76))
+        version: 0.3.80(openai@5.12.2(ws@8.20.0)(zod@3.25.76))
       '@langchain/openai':
         specifier: ^0.6.9
-        version: 0.6.17(@langchain/core@0.3.80(openai@5.12.2(zod@3.25.76)))
+        version: 0.6.17(@langchain/core@0.3.80(openai@5.12.2(ws@8.20.0)(zod@3.25.76)))(ws@8.20.0)
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.1.19(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -74,6 +74,9 @@ importers:
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
+      ws:
+        specifier: ^8.18.3
+        version: 8.20.0
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -87,6 +90,9 @@ importers:
       '@types/node':
         specifier: ^24.0.0
         version: 24.12.3
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
@@ -1514,6 +1520,9 @@ packages:
 
   '@types/validator@13.15.10':
     resolution: {integrity: sha512-T8L6i7wCuyoK8A/ZeLYt1+q0ty3Zb9+qbSSvrIVitzT3YjZqkTZ40IbRsPanlB4h1QB3JVL1SYCdR6ngtFYcuA==}
+
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
   '@vitejs/plugin-vue@5.2.4':
     resolution: {integrity: sha512-7Yx/SXSOcQq5HiiV3orevHUFn+pmMB4cgbEkDYgnkUWb0WfeQ/wa2yFv6D5ICiCQOVpjA7vYDXrC7AGO8yjDHA==}
@@ -3388,6 +3397,18 @@ packages:
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
+  ws@8.20.0:
+    resolution: {integrity: sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   yargs-parser@21.1.1:
     resolution: {integrity: sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw==}
     engines: {node: '>=12'}
@@ -3887,14 +3908,14 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@langchain/core@0.3.80(openai@5.12.2(zod@3.25.76))':
+  '@langchain/core@0.3.80(openai@5.12.2(ws@8.20.0)(zod@3.25.76))':
     dependencies:
       '@cfworker/json-schema': 4.1.1
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.21
-      langsmith: 0.3.87(openai@5.12.2(zod@3.25.76))
+      langsmith: 0.3.87(openai@5.12.2(ws@8.20.0)(zod@3.25.76))
       mustache: 4.2.0
       p-queue: 6.6.2
       p-retry: 4.6.2
@@ -3907,11 +3928,11 @@ snapshots:
       - '@opentelemetry/sdk-trace-base'
       - openai
 
-  '@langchain/openai@0.6.17(@langchain/core@0.3.80(openai@5.12.2(zod@3.25.76)))':
+  '@langchain/openai@0.6.17(@langchain/core@0.3.80(openai@5.12.2(ws@8.20.0)(zod@3.25.76)))(ws@8.20.0)':
     dependencies:
-      '@langchain/core': 0.3.80(openai@5.12.2(zod@3.25.76))
+      '@langchain/core': 0.3.80(openai@5.12.2(ws@8.20.0)(zod@3.25.76))
       js-tiktoken: 1.0.21
-      openai: 5.12.2(zod@3.25.76)
+      openai: 5.12.2(ws@8.20.0)(zod@3.25.76)
       zod: 3.25.76
     transitivePeerDependencies:
       - ws
@@ -4429,6 +4450,10 @@ snapshots:
   '@types/uuid@10.0.0': {}
 
   '@types/validator@13.15.10': {}
+
+  '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 24.12.3
 
   '@vitejs/plugin-vue@5.2.4(vite@6.4.2(@types/node@24.12.3)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(tsx@4.21.0))(vue@3.5.34(typescript@5.9.3))':
     dependencies:
@@ -5373,7 +5398,7 @@ snapshots:
       readable-stream: 2.3.8
       setimmediate: 1.0.5
 
-  langsmith@0.3.87(openai@5.12.2(zod@3.25.76)):
+  langsmith@0.3.87(openai@5.12.2(ws@8.20.0)(zod@3.25.76)):
     dependencies:
       '@types/uuid': 10.0.0
       chalk: 4.1.2
@@ -5382,7 +5407,7 @@ snapshots:
       semver: 7.7.4
       uuid: 10.0.0
     optionalDependencies:
-      openai: 5.12.2(zod@3.25.76)
+      openai: 5.12.2(ws@8.20.0)(zod@3.25.76)
 
   libphonenumber-js@1.12.43: {}
 
@@ -5582,8 +5607,9 @@ snapshots:
     dependencies:
       mimic-fn: 2.1.0
 
-  openai@5.12.2(zod@3.25.76):
+  openai@5.12.2(ws@8.20.0)(zod@3.25.76):
     optionalDependencies:
+      ws: 8.20.0
       zod: 3.25.76
 
   ora@5.4.1:
@@ -6317,6 +6343,8 @@ snapshots:
       strip-ansi: 6.0.1
 
   wrappy@1.0.2: {}
+
+  ws@8.20.0: {}
 
   yargs-parser@21.1.1: {}
 
