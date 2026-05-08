@@ -91,6 +91,60 @@ export const OpenQuestionSchema = z.object({
   updatedAt: z.string(),
 });
 
+export const ChatContextSchema = z.object({
+  selectedText: z.string().min(1).optional(),
+  source: z.string().min(1).optional(),
+});
+
+export const ChatTextInputSchema = z.object({
+  kind: z.literal('text'),
+  text: z.string().min(1),
+  context: ChatContextSchema.optional(),
+});
+
+export const ChatCommandSchema = z.enum(['clarify', 'generate_draft', 'review_spec']);
+
+export const ChatCommandInputSchema = z.object({
+  kind: z.literal('command'),
+  command: ChatCommandSchema,
+  context: ChatContextSchema.optional(),
+});
+
+export const ChatQuestionnaireAnswerInputSchema = z
+  .object({
+    questionArtifactId: z.string().min(1),
+    selectedAnswers: z.array(z.string().min(1)).optional(),
+    customAnswer: z.string().optional(),
+    textAnswer: z.string().optional(),
+  })
+  .refine(
+    (value) =>
+      Boolean(value.textAnswer?.trim()) ||
+      Boolean(value.customAnswer?.trim()) ||
+      (value.selectedAnswers?.length ?? 0) > 0,
+    {
+      message: 'Each question answer must include textAnswer, customAnswer, or selectedAnswers.',
+    },
+  );
+
+export const ChatQuestionnaireAnswersInputSchema = z.object({
+  kind: z.literal('questionnaire_answers'),
+  sourceMessageId: z.string().min(1),
+  answers: z.array(ChatQuestionnaireAnswerInputSchema).min(1),
+});
+
+export const ChatInputSchema = z.discriminatedUnion('kind', [
+  ChatTextInputSchema,
+  ChatCommandInputSchema,
+  ChatQuestionnaireAnswersInputSchema,
+]);
+
+export const LegacyChatInputSchema = z.object({
+  message: z.string().min(1),
+});
+
+export const ChatInputEnvelopeSchema = z.union([ChatInputSchema, LegacyChatInputSchema]);
+
 export const AcceptanceCriterionSchema = z.object({
   id: z.string().min(1),
   sessionId: z.string().min(1),
@@ -295,4 +349,36 @@ export const ReviewReportPayloadSchema = z.object({
   approvalSummary: z.string(),
 });
 
+export const ConversationStructuredTextBlockSchema = z.object({
+  type: z.literal('text'),
+  text: z.string().min(1),
+});
+
+export const ConversationStructuredQuestionSchema = z.object({
+  questionArtifactId: z.string().min(1),
+  question: z.string().min(1),
+  whyItMatters: z.string().min(1),
+  severity: z.enum(['minor', 'normal', 'important', 'blocking']),
+  answerMode: z.enum(['free_text', 'single_choice', 'multiple_choice']),
+  suggestedAnswers: z.array(z.string()).optional(),
+  allowOtherAnswer: z.boolean().optional(),
+  otherAnswerLabel: z.string().optional(),
+});
+
+export const ConversationStructuredQuestionnaireBlockSchema = z.object({
+  type: z.literal('questionnaire'),
+  questions: z.array(ConversationStructuredQuestionSchema).min(1),
+});
+
+export const ConversationStructuredBlockSchema = z.union([
+  ConversationStructuredTextBlockSchema,
+  ConversationStructuredQuestionnaireBlockSchema,
+]);
+
+export const ConversationStructuredPayloadSchema = z.object({
+  version: z.literal('chat_response.v1'),
+  blocks: z.array(ConversationStructuredBlockSchema).min(1),
+});
+
 export type ProductSpecJsonInput = z.infer<typeof ProductSpecJsonSchema>;
+export type ChatInputEnvelope = z.infer<typeof ChatInputEnvelopeSchema>;

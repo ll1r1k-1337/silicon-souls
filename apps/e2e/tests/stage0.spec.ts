@@ -131,49 +131,52 @@ async function startSpecSession(page: Page, rawIdea: string): Promise<string> {
 async function answerVisibleOpenQuestions(
   page: Page,
   request: APIRequestContext,
-  maxAnswers = 3,
+  maxQuestions = 3,
 ): Promise<number> {
-  let answered = 0;
-
-  for (let index = 0; index < maxAnswers; index += 1) {
-    const cards = page.getByTestId('open-question-card');
-    if ((await cards.count()) === 0) {
-      break;
-    }
-
-    const card = cards.first();
-    const freeTextAnswer = card.getByTestId('open-question-answer');
-    if ((await freeTextAnswer.count()) > 0) {
-      await freeTextAnswer.fill('For this e2e run, use the primary local product owner workflow.');
-    } else {
-      const choice = card.locator('input[type="radio"], input[type="checkbox"]').first();
-      await expect(choice).toHaveCount(1);
-      await choice.check({ force: true });
-
-      const customAnswer = card.getByTestId('open-question-custom-answer');
-      if ((await customAnswer.count()) > 0 && (await customAnswer.isVisible())) {
-        await customAnswer.fill('Local product owner');
-      }
-    }
-
-    await expect(card.getByTestId('save-open-question-answer')).toBeEnabled();
-    const patchResponse = page.waitForResponse(
-      (response) =>
-        response.url().includes('/api/spec-artifacts/') &&
-        response.request().method() === 'PATCH',
-    );
-    await card.getByTestId('save-open-question-answer').click();
-
-    const payload = await readJson<{
-      reaction?: { jobs?: JobRef[] };
-    }>(await patchResponse, 'PATCH /api/spec-artifacts/:artifactId');
-    await waitForJobs(request, payload.reaction?.jobs ?? []);
-    answered += 1;
-    await page.reload();
-    await expect(page.getByTestId('spec-topbar')).toBeVisible();
+  const cards = page.getByTestId('chat-question-card');
+  const visible = await cards.count();
+  if (visible === 0) {
+    return 0;
   }
 
-  return answered;
+  const cardsToAnswer = Math.min(maxQuestions, visible);
+  for (let index = 0; index < cardsToAnswer; index += 1) {
+    const card = cards.nth(index);
+    const freeTextAnswer = card.getByTestId('chat-question-answer');
+    if ((await freeTextAnswer.count()) > 0) {
+      await freeTextAnswer.fill('For this e2e run, use the primary local product owner workflow.');
+      continue;
+    }
+
+    const choice = card.locator('input[type="radio"], input[type="checkbox"]').first();
+    if ((await choice.count()) > 0) {
+      await choice.check({ force: true });
+    }
+
+    const customAnswer = card.getByTestId('chat-question-custom-answer');
+    if ((await customAnswer.count()) > 0 && (await customAnswer.isVisible())) {
+      await customAnswer.fill('Local product owner');
+    }
+  }
+
+  const submit = page.getByTestId('submit-chat-questionnaire').first();
+  await expect(submit).toBeEnabled();
+  const messageResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes('/api/spec-sessions/') &&
+      response.url().endsWith('/messages') &&
+      response.request().method() === 'POST',
+  );
+  await submit.click();
+
+  const payload = await readJson<{ jobs: JobRef[] }>(
+    await messageResponse,
+    'POST /api/spec-sessions/:sessionId/messages (questionnaire_answers)',
+  );
+  await waitForJobs(request, payload.jobs ?? []);
+  await page.reload();
+  await expect(page.getByTestId('spec-topbar')).toBeVisible();
+  return cardsToAnswer;
 }
 
 async function expectExports(request: APIRequestContext, sessionId: string): Promise<void> {
@@ -272,7 +275,7 @@ test('full SDD flow reaches draft, review blockers, and exports', async ({ page,
   const sessionId = await startSpecSession(page, rawIdea);
 
   await expect(page.getByTestId('llm-status')).not.toContainText('mock LLM');
-  await expect(page.getByTestId('rich-editor-panel')).toBeVisible();
+  await expect(page.getByTestId('document-preview-panel')).toBeVisible();
   const topbar = page.getByTestId('spec-topbar');
 
   const messageResponse = page.waitForResponse(
@@ -299,7 +302,7 @@ test('full SDD flow reaches draft, review blockers, and exports', async ({ page,
   );
   await page.reload();
   await expect(page.getByTestId('message-assistant').first()).toBeVisible();
-  await expect(page.getByTestId('open-question-card').first()).toBeVisible();
+  await expect(page.getByTestId('chat-question-card').first()).toBeVisible();
 
   const answered = await answerVisibleOpenQuestions(page, request);
   expect(answered).toBeGreaterThan(0);
@@ -307,15 +310,16 @@ test('full SDD flow reaches draft, review blockers, and exports', async ({ page,
   const draftResponse = page.waitForResponse(
     (response) =>
       response.url().includes('/api/spec-sessions/') &&
-      response.url().endsWith('/generate-draft') &&
+      response.url().endsWith('/messages') &&
       response.request().method() === 'POST',
   );
-  await topbar.getByRole('button', { name: 'Generate' }).click();
-  const draftJob = await readJson<JobRef>(
+  await page.getByTestId('chat-input').fill('/generate-draft');
+  await page.getByRole('button', { name: 'Send' }).click();
+  const draftPayload = await readJson<{ jobs: JobRef[] }>(
     await draftResponse,
-    'POST /api/spec-sessions/:sessionId/generate-draft',
+    'POST /api/spec-sessions/:sessionId/messages (/generate-draft)',
   );
-  await waitForJobs(request, [draftJob]);
+  await waitForJobs(request, draftPayload.jobs);
 
   await waitForWorkspace(
     request,
@@ -325,20 +329,21 @@ test('full SDD flow reaches draft, review blockers, and exports', async ({ page,
   );
   await page.reload();
   await expect(page.getByTestId('spec-version')).toContainText('0.1.0');
-  await expect(page.getByTestId('rich-editor-content')).toBeVisible();
+  await expect(page.getByTestId('document-preview-content')).toBeVisible();
 
   const reviewResponse = page.waitForResponse(
     (response) =>
       response.url().includes('/api/spec-sessions/') &&
-      response.url().endsWith('/review') &&
+      response.url().endsWith('/messages') &&
       response.request().method() === 'POST',
   );
-  await topbar.getByRole('button', { name: 'Review' }).click();
-  const reviewJob = await readJson<JobRef>(
+  await page.getByTestId('chat-input').fill('/review-spec');
+  await page.getByRole('button', { name: 'Send' }).click();
+  const reviewPayload = await readJson<{ jobs: JobRef[] }>(
     await reviewResponse,
-    'POST /api/spec-sessions/:sessionId/review',
+    'POST /api/spec-sessions/:sessionId/messages (/review-spec)',
   );
-  await waitForJobs(request, [reviewJob]);
+  await waitForJobs(request, reviewPayload.jobs);
 
   await waitForWorkspace(
     request,

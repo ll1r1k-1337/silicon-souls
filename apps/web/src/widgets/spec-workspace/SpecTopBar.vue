@@ -21,12 +21,6 @@
       </div>
     </div>
     <nav class="topbar-actions" aria-label="Specification actions">
-      <BaseButton :icon="FileText" variant="secondary" @click="store.generateDraft()">
-        Generate
-      </BaseButton>
-      <BaseButton :icon="SearchCheck" variant="secondary" @click="store.reviewSpec()">
-        Review
-      </BaseButton>
       <BaseButton
         :icon="CheckCircle"
         variant="primary"
@@ -77,11 +71,9 @@ import {
   Boxes,
   CheckCircle,
   Download,
-  FileText,
   History,
   MoreHorizontal,
   PanelRight,
-  SearchCheck,
   Settings,
 } from 'lucide-vue-next';
 import { computed, onMounted } from 'vue';

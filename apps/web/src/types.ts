@@ -5,6 +5,7 @@ import type {
   DocumentCommentThread,
   DocumentProjectionStatus,
   DocumentSuggestion,
+  ConversationStructuredPayload,
   ReviewReportPayload,
   RichDocumentContent,
   SpecArtifact,
@@ -43,6 +44,7 @@ export interface ConversationMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   createdAt: string;
+  structured?: ConversationStructuredPayload;
   thinkingSummary?: string;
   generatedArtifactIds?: string[];
   generatedOpenQuestionIds?: string[];

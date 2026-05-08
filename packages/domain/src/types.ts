@@ -39,12 +39,77 @@ export interface SpecSession {
   approvedBy?: 'user';
 }
 
+export interface ChatContext {
+  selectedText?: string;
+  source?: string;
+}
+
+export type ChatCommand = 'clarify' | 'generate_draft' | 'review_spec';
+
+export interface ChatTextInput {
+  kind: 'text';
+  text: string;
+  context?: ChatContext;
+}
+
+export interface ChatCommandInput {
+  kind: 'command';
+  command: ChatCommand;
+  context?: ChatContext;
+}
+
+export interface ChatQuestionnaireAnswerInput {
+  questionArtifactId: string;
+  selectedAnswers?: string[];
+  customAnswer?: string;
+  textAnswer?: string;
+}
+
+export interface ChatQuestionnaireAnswersInput {
+  kind: 'questionnaire_answers';
+  sourceMessageId: string;
+  answers: ChatQuestionnaireAnswerInput[];
+}
+
+export type ChatInput = ChatTextInput | ChatCommandInput | ChatQuestionnaireAnswersInput;
+
+export interface ConversationStructuredTextBlock {
+  type: 'text';
+  text: string;
+}
+
+export interface ConversationStructuredQuestion {
+  questionArtifactId: string;
+  question: string;
+  whyItMatters: string;
+  severity: 'minor' | 'normal' | 'important' | 'blocking';
+  answerMode: 'free_text' | 'single_choice' | 'multiple_choice';
+  suggestedAnswers?: string[];
+  allowOtherAnswer?: boolean;
+  otherAnswerLabel?: string;
+}
+
+export interface ConversationStructuredQuestionnaireBlock {
+  type: 'questionnaire';
+  questions: ConversationStructuredQuestion[];
+}
+
+export type ConversationStructuredBlock =
+  | ConversationStructuredTextBlock
+  | ConversationStructuredQuestionnaireBlock;
+
+export interface ConversationStructuredPayload {
+  version: 'chat_response.v1';
+  blocks: ConversationStructuredBlock[];
+}
+
 export interface ConversationTurn {
   id: string;
   sessionId: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   createdAt: string;
+  structured?: ConversationStructuredPayload;
   thinkingSummary?: string;
   extractedFactIds: string[];
   extractedRequirementIds: string[];

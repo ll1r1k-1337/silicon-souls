@@ -1,13 +1,10 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, ConflictException, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { z } from 'zod';
+import { ChatInputEnvelopeSchema } from '@sdd/schemas';
 import { SpecSessionsService } from './spec-sessions.service';
 
 const StartSessionSchema = z.object({
   rawIdea: z.string().min(1),
-});
-
-const SendMessageSchema = z.object({
-  message: z.string().min(1),
 });
 
 const DirectEditSchema = z.object({
@@ -75,8 +72,8 @@ export class SpecSessionsController {
     @Param('sessionId') sessionId: string,
     @Body() body: unknown,
   ): Promise<Record<string, unknown>> {
-    const input = SendMessageSchema.parse(body);
-    return this.sessions.sendUserMessage(sessionId, input.message);
+    const input = ChatInputEnvelopeSchema.parse(body);
+    return this.sessions.sendUserMessage(sessionId, input);
   }
 
   @Post('spec-sessions/:sessionId/generate-draft')
@@ -105,42 +102,22 @@ export class SpecSessionsController {
 
   @Post('spec-sessions/:sessionId/document/comments')
   async createDocumentCommentThread(
-    @Param('sessionId') sessionId: string,
-    @Body() body: unknown,
+    @Param('sessionId') _sessionId: string,
+    @Body() _body: unknown,
   ): Promise<Record<string, unknown>> {
-    const input = CreateCommentThreadSchema.parse(body);
-    const thread = await this.sessions.createDocumentCommentThread({ sessionId, ...input });
-    const job = await this.sessions.enqueueDocumentAssistant({
-      sessionId,
-      mode: 'comment',
-      prompt: input.content,
-      threadId: thread.id,
-      anchor: input.anchor,
-      selectedText: input.selectedText,
-    });
-    return { thread, job };
+    throw new ConflictException(
+      'Document assistant comment threads are disabled. Use chat messages with document context.',
+    );
   }
 
   @Post('document-comment-threads/:threadId/comments')
   async addDocumentComment(
-    @Param('threadId') threadId: string,
-    @Body() body: unknown,
+    @Param('threadId') _threadId: string,
+    @Body() _body: unknown,
   ): Promise<Record<string, unknown>> {
-    const input = AddCommentSchema.parse(body);
-    const comment = await this.sessions.addDocumentComment(threadId, {
-      author: 'user',
-      content: input.content,
-    });
-    const thread = await this.sessions.getDocumentCommentThread(threadId);
-    const job = await this.sessions.enqueueDocumentAssistant({
-      sessionId: thread.sessionId,
-      mode: 'comment',
-      prompt: input.content,
-      threadId,
-      anchor: thread.anchor,
-      selectedText: thread.selectedText,
-    });
-    return { comment, job };
+    throw new ConflictException(
+      'Document assistant comments are disabled. Use chat messages with document context.',
+    );
   }
 
   @Patch('document-comment-threads/:threadId')
@@ -165,10 +142,11 @@ export class SpecSessionsController {
 
   @Post('spec-sessions/:sessionId/document/assistant')
   async documentAssistant(
-    @Param('sessionId') sessionId: string,
-    @Body() body: unknown,
+    @Param('sessionId') _sessionId: string,
+    @Body() _body: unknown,
   ): Promise<Record<string, unknown>> {
-    const input = DocumentAssistantSchema.parse(body);
-    return this.sessions.enqueueDocumentAssistant({ sessionId, ...input });
+    throw new ConflictException(
+      'Document assistant endpoint is disabled. Use chat messages with document context.',
+    );
   }
 }

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import type { SpecArtifact } from '@sdd/domain';
+import type { ChatCommand, SpecArtifact } from '@sdd/domain';
 import { apiRequest } from '@/shared/api/client';
 import type {
   DocumentAnchor,
@@ -18,6 +18,38 @@ interface ArtifactUpdateResponse {
     jobs?: JobRef[];
   };
 }
+
+interface ChatContextEnvelope {
+  selectedText?: string;
+  source?: string;
+}
+
+interface ChatTextEnvelope {
+  kind: 'text';
+  text: string;
+  context?: ChatContextEnvelope;
+}
+
+interface ChatCommandEnvelope {
+  kind: 'command';
+  command: ChatCommand;
+  context?: ChatContextEnvelope;
+}
+
+interface ChatQuestionnaireAnswerEnvelope {
+  questionArtifactId: string;
+  selectedAnswers?: string[];
+  customAnswer?: string;
+  textAnswer?: string;
+}
+
+interface ChatQuestionnaireAnswersEnvelope {
+  kind: 'questionnaire_answers';
+  sourceMessageId: string;
+  answers: ChatQuestionnaireAnswerEnvelope[];
+}
+
+type ChatEnvelope = ChatTextEnvelope | ChatCommandEnvelope | ChatQuestionnaireAnswersEnvelope;
 
 function trackJobs(jobs: Array<JobRef | undefined>, onComplete?: () => Promise<void>): void {
   const definedJobs = jobs.filter((job): job is JobRef => Boolean(job));
@@ -71,13 +103,15 @@ export const useSpecSessionStore = defineStore('specSessionStore', {
         this.loading = false;
       }
     },
-    async sendMessage(message: string) {
+    async sendMessage(message: string | ChatEnvelope) {
       if (!this.workspace) return;
+      const payload =
+        typeof message === 'string' ? ({ message } as Record<string, unknown>) : message;
       const response = await apiRequest<{ jobs: JobRef[] }>(
         `/spec-sessions/${this.workspace.session.id}/messages`,
         {
           method: 'POST',
-          body: JSON.stringify({ message }),
+          body: JSON.stringify(payload),
         },
       );
       const jobStore = useBackgroundJobStore();
@@ -88,11 +122,24 @@ export const useSpecSessionStore = defineStore('specSessionStore', {
         async () => this.workspace && this.loadWorkspace(this.workspace.session.id),
       );
     },
+    async sendCommand(command: ChatCommand, context?: ChatContextEnvelope) {
+      await this.sendMessage({ kind: 'command', command, ...(context ? { context } : {}) });
+    },
+    async sendQuestionnaireAnswers(input: {
+      sourceMessageId: string;
+      answers: ChatQuestionnaireAnswerEnvelope[];
+    }) {
+      await this.sendMessage({
+        kind: 'questionnaire_answers',
+        sourceMessageId: input.sourceMessageId,
+        answers: input.answers,
+      });
+    },
     async generateDraft() {
-      await this.enqueueAndPoll('generate-draft');
+      await this.sendCommand('generate_draft');
     },
     async reviewSpec() {
-      await this.enqueueAndPoll('review');
+      await this.sendCommand('review_spec');
     },
     async approveSpec() {
       if (!this.workspace) return;

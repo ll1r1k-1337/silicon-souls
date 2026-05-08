@@ -7,7 +7,12 @@ import {
   validateApprovalReadiness,
   type AcceptanceCriterion,
   type Assumption,
+  type ChatCommand,
+  type ChatContext,
+  type ChatInput,
+  type ChatQuestionnaireAnswerInput,
   type ConversationTurn,
+  type ConversationStructuredPayload,
   type Decision,
   type DocumentAnchor,
   type DocumentComment,
@@ -31,13 +36,18 @@ import {
   type TargetUser,
   type UserScenario,
 } from '@sdd/domain';
-import { ProductSpecJsonSchema, ReviewReportPayloadSchema } from '@sdd/schemas';
+import {
+  ConversationStructuredPayloadSchema,
+  ProductSpecJsonSchema,
+  ReviewReportPayloadSchema,
+  type ChatInputEnvelope,
+} from '@sdd/schemas';
 import {
   buildProductSpecJson,
   richDocumentFromMarkdown,
   richDocumentSchemaVersion,
 } from '@sdd/spec-format';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { BackgroundJobsService } from '../background-jobs/background-jobs.service';
 import { ProjectsService } from '../projects/projects.service';
 import { DatabaseService } from '../../shared/database/database.service';
@@ -109,6 +119,93 @@ function mergeIds(...groups: string[][]): string[] {
   return Array.from(new Set(groups.flat()));
 }
 
+interface LegacyMessageInput {
+  message: string;
+}
+
+function isLegacyMessageInput(value: unknown): value is LegacyMessageInput {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      Object.prototype.hasOwnProperty.call(value, 'message') &&
+      typeof (value as { message?: unknown }).message === 'string',
+  );
+}
+
+function normalizeChatContext(context: ChatContext | undefined): ChatContext | undefined {
+  if (!context) {
+    return undefined;
+  }
+
+  const selectedText =
+    typeof context.selectedText === 'string' ? context.selectedText.trim() : undefined;
+  const source = typeof context.source === 'string' ? context.source.trim() : undefined;
+  if (!selectedText && !source) {
+    return undefined;
+  }
+
+  return {
+    ...(selectedText ? { selectedText } : {}),
+    ...(source ? { source } : {}),
+  };
+}
+
+function buildTextWithContext(text: string, context: ChatContext | undefined): string {
+  const normalized = text.trim();
+  const chatContext = normalizeChatContext(context);
+  if (!chatContext) {
+    return normalized;
+  }
+
+  const lines = ['[Chat context]'];
+  if (chatContext.source) {
+    lines.push(`Source: ${chatContext.source}`);
+  }
+  if (chatContext.selectedText) {
+    lines.push('Selected text:', '"""', chatContext.selectedText, '"""');
+  }
+  lines.push('', 'Message:', normalized);
+  return lines.join('\n');
+}
+
+function normalizeChatInput(input: string | ChatInputEnvelope): ChatInput {
+  if (typeof input === 'string') {
+    return { kind: 'text', text: input };
+  }
+
+  if (isLegacyMessageInput(input)) {
+    return { kind: 'text', text: input.message };
+  }
+
+  return input;
+}
+
+function buildStructuredText(text: string): ConversationStructuredPayload {
+  return {
+    version: 'chat_response.v1',
+    blocks: [
+      {
+        type: 'text',
+        text: text.trim() || 'No details provided.',
+      },
+    ],
+  };
+}
+
+function parseStructuredPayload(value: unknown): ConversationStructuredPayload | undefined {
+  const parsed = ConversationStructuredPayloadSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
+
+function stringifyAnswer(answer: ChatQuestionnaireAnswerInput): string {
+  const selected = (answer.selectedAnswers ?? [])
+    .map((item) => item.trim())
+    .filter((item) => Boolean(item) && !/^other\b/i.test(item));
+  const text = (answer.textAnswer ?? '').trim();
+  const custom = (answer.customAnswer ?? '').trim();
+  return [...selected, text, custom].filter(Boolean).join('\n');
+}
+
 const specStatusDisplay: Record<
   SpecSession['status'],
   { label: string; description: string }
@@ -176,6 +273,7 @@ function mapTurn(row: ConversationTurnRow): ConversationTurn {
     role: row.role as ConversationTurn['role'],
     content: row.content,
     createdAt: row.createdAt.toISOString(),
+    structured: parseStructuredPayload(metadata.structured),
     thinkingSummary:
       typeof metadata.thinkingSummary === 'string'
         ? metadata.thinkingSummary
@@ -575,43 +673,212 @@ export class SpecSessionsService {
 
   async sendUserMessage(
     sessionId: string,
-    message: string,
+    input: string | ChatInputEnvelope,
   ): Promise<Record<string, unknown>> {
     const session = await this.getSession(sessionId);
-    const turn = await this.addConversationTurn(sessionId, 'user', message);
-    await this.updateSessionStatus(sessionId, 'clarifying');
+    const message = normalizeChatInput(input);
+
+    if (message.kind === 'command') {
+      return this.sendUserCommand(session, message.command, message.context);
+    }
+
+    if (message.kind === 'questionnaire_answers') {
+      return this.sendQuestionnaireAnswers(session, message.sourceMessageId, message.answers);
+    }
+
+    return this.sendUserTextMessage(session, message.text, message.context);
+  }
+
+  private async sendUserTextMessage(
+    session: SpecSession,
+    text: string,
+    context?: ChatContext,
+  ): Promise<Record<string, unknown>> {
+    const content = buildTextWithContext(text, context);
+    const turn = await this.addConversationTurn(session.id, 'user', content, {
+      structured: buildStructuredText(content),
+    });
+    await this.updateSessionStatus(session.id, 'clarifying');
 
     const extractJob = await this.jobs.createJob({
       type: 'extract_artifacts',
       payload: {
         projectId: session.projectId,
-        sessionId,
+        sessionId: session.id,
         messageId: turn.id,
-        userMessage: message,
+        userMessage: content,
       },
     });
     const questionsJob = await this.jobs.createJob({
       type: 'generate_clarifying_questions',
       payload: {
         projectId: session.projectId,
-        sessionId,
+        sessionId: session.id,
         sourceTurnId: turn.id,
       },
     });
 
-    await this.events.append({
-      aggregateId: sessionId,
-      aggregateType: 'spec_session',
-      eventType: 'conversation.message_added',
-      payload: { messageId: turn.id, role: 'user' },
-    });
-
+    await this.appendMessageAddedEvent(session.id, turn.id, 'user');
     return {
       messageId: turn.id,
       jobs: [
         { jobId: extractJob.id, type: extractJob.type, status: extractJob.status },
         { jobId: questionsJob.id, type: questionsJob.type, status: questionsJob.status },
       ],
+      status: 'clarifying',
+    };
+  }
+
+  private async sendUserCommand(
+    session: SpecSession,
+    command: ChatCommand,
+    context?: ChatContext,
+  ): Promise<Record<string, unknown>> {
+    const commandTextMap: Record<ChatCommand, string> = {
+      clarify: '/clarify',
+      generate_draft: '/generate-draft',
+      review_spec: '/review-spec',
+    };
+    const commandText = commandTextMap[command];
+    const content = buildTextWithContext(commandText, context);
+    const turn = await this.addConversationTurn(session.id, 'user', content, {
+      structured: buildStructuredText(content),
+      command,
+    });
+    await this.appendMessageAddedEvent(session.id, turn.id, 'user');
+
+    if (command === 'clarify') {
+      await this.updateSessionStatus(session.id, 'clarifying');
+      const questionsJob = await this.jobs.createJob({
+        type: 'generate_clarifying_questions',
+        payload: {
+          projectId: session.projectId,
+          sessionId: session.id,
+          sourceTurnId: turn.id,
+        },
+      });
+      return {
+        messageId: turn.id,
+        jobs: [{ jobId: questionsJob.id, type: questionsJob.type, status: questionsJob.status }],
+        status: 'clarifying',
+      };
+    }
+
+    if (command === 'generate_draft') {
+      const job = await this.jobs.createJob({
+        type: 'generate_draft',
+        payload: { projectId: session.projectId, sessionId: session.id },
+      });
+      return {
+        messageId: turn.id,
+        jobs: [{ jobId: job.id, type: job.type, status: job.status }],
+        status: session.status,
+      };
+    }
+
+    await this.updateSessionStatus(session.id, 'review');
+    const job = await this.jobs.createJob({
+      type: 'run_review',
+      payload: { projectId: session.projectId, sessionId: session.id },
+    });
+    return {
+      messageId: turn.id,
+      jobs: [{ jobId: job.id, type: job.type, status: job.status }],
+      status: 'review',
+    };
+  }
+
+  private async sendQuestionnaireAnswers(
+    session: SpecSession,
+    sourceMessageId: string,
+    answers: ChatQuestionnaireAnswerInput[],
+  ): Promise<Record<string, unknown>> {
+    const questionIds = Array.from(new Set(answers.map((answer) => answer.questionArtifactId)));
+    const rows = await this.database.db
+      .select()
+      .from(specArtifacts)
+      .where(
+        and(
+          eq(specArtifacts.sessionId, session.id),
+          questionIds.length > 0
+            ? inArray(specArtifacts.id, questionIds)
+            : eq(specArtifacts.sessionId, '__never__'),
+        ),
+      );
+    const artifactsById = new Map(rows.map((row) => [row.id, row]));
+    const now = new Date();
+    const updatedArtifactIds: string[] = [];
+    const summaryLines: string[] = [];
+
+    await this.database.db.transaction(async (tx) => {
+      for (const answer of answers) {
+        const artifact = artifactsById.get(answer.questionArtifactId);
+        if (!artifact || artifact.artifactType !== 'open_question') {
+          continue;
+        }
+
+        const payload = artifact.payload as Record<string, unknown>;
+        const selectedAnswers = (answer.selectedAnswers ?? [])
+          .map((option) => option.trim())
+          .filter(Boolean);
+        const customAnswer = (answer.customAnswer ?? '').trim();
+        const textAnswer = (answer.textAnswer ?? '').trim();
+        const normalizedAnswer =
+          textAnswer ||
+          [...selectedAnswers.filter((option) => !/^other\b/i.test(option)), customAnswer]
+            .filter(Boolean)
+            .join('\n');
+        if (!normalizedAnswer) {
+          continue;
+        }
+
+        const nextPayload = {
+          ...payload,
+          answer: normalizedAnswer,
+          selectedAnswers,
+          customAnswer: customAnswer || undefined,
+          status: 'answered',
+        };
+        await tx
+          .update(specArtifacts)
+          .set({
+            status: 'answered',
+            payload: nextPayload,
+            updatedAt: now,
+          })
+          .where(eq(specArtifacts.id, artifact.id));
+        updatedArtifactIds.push(artifact.id);
+        summaryLines.push(
+          `- ${String(payload.question ?? artifact.id)}: ${normalizedAnswer.replace(/\n/g, '; ')}`,
+        );
+      }
+    });
+
+    const answerSummary =
+      summaryLines.length > 0
+        ? ['[Questionnaire answers]', ...summaryLines].join('\n')
+        : '[Questionnaire answers]\nNo valid answers provided.';
+    const turn = await this.addConversationTurn(session.id, 'user', answerSummary, {
+      sourceMessageId,
+      generatedArtifactIds: updatedArtifactIds,
+      generatedOpenQuestionIds: updatedArtifactIds,
+      structured: buildStructuredText(answerSummary),
+    });
+    await this.updateSessionStatus(session.id, 'clarifying');
+    const questionsJob = await this.jobs.createJob({
+      type: 'generate_clarifying_questions',
+      payload: {
+        projectId: session.projectId,
+        sessionId: session.id,
+        sourceTurnId: turn.id,
+      },
+    });
+    await this.appendMessageAddedEvent(session.id, turn.id, 'user');
+
+    return {
+      messageId: turn.id,
+      answeredQuestionIds: updatedArtifactIds,
+      jobs: [{ jobId: questionsJob.id, type: questionsJob.type, status: questionsJob.status }],
       status: 'clarifying',
     };
   }
@@ -837,17 +1104,58 @@ export class SpecSessionsService {
     const assistantMessage =
       params.assistantMessage.trim() ||
       'I processed the latest message and updated the specification context.';
-    const questionList = inserted
+    const questionArtifacts = inserted
       .filter((artifact) => artifact.artifactType === 'open_question')
-      .slice(0, 5)
-      .map((artifact, index) => {
-        const payload = artifact.payload as Record<string, unknown>;
-        return `${index + 1}. ${String(payload.question ?? artifact.id)}`;
-      })
-      .join('\n');
-    const content = questionList
-      ? `${assistantMessage}\n\n${questionList}`.trim()
-      : assistantMessage;
+      .slice(0, 5);
+    const structured: ConversationStructuredPayload = {
+      version: 'chat_response.v1',
+      blocks: [
+        {
+          type: 'text',
+          text: assistantMessage,
+        },
+        ...(questionArtifacts.length > 0
+          ? [
+              {
+                type: 'questionnaire' as const,
+                questions: questionArtifacts.map((artifact) => {
+                  const payload = artifact.payload as Record<string, unknown>;
+                  const answerMode: 'free_text' | 'single_choice' | 'multiple_choice' =
+                    payload.answerMode === 'single_choice' ||
+                    payload.answerMode === 'multiple_choice' ||
+                    payload.answerMode === 'free_text'
+                      ? payload.answerMode
+                      : Array.isArray(payload.suggestedAnswers) &&
+                          payload.suggestedAnswers.length > 0
+                        ? 'single_choice'
+                        : 'free_text';
+                  return {
+                    questionArtifactId: artifact.id,
+                    question: String(payload.question ?? artifact.id),
+                    whyItMatters: String(payload.whyItMatters ?? 'Not specified'),
+                    severity: (payload.severity as OpenQuestion['severity']) ?? 'normal',
+                    answerMode,
+                    suggestedAnswers: Array.isArray(payload.suggestedAnswers)
+                      ? payload.suggestedAnswers.filter(
+                          (value): value is string => typeof value === 'string',
+                        )
+                      : undefined,
+                    allowOtherAnswer:
+                      typeof payload.allowOtherAnswer === 'boolean'
+                        ? payload.allowOtherAnswer
+                        : undefined,
+                    otherAnswerLabel:
+                      typeof payload.otherAnswerLabel === 'string'
+                        ? payload.otherAnswerLabel
+                        : undefined,
+                  };
+                }),
+              },
+            ]
+          : []),
+      ],
+    };
+    const content = assistantMessage;
 
     await this.addConversationTurn(params.sessionId, 'assistant', content, {
       sourceTurnId: params.sourceTurnId,
@@ -856,6 +1164,7 @@ export class SpecSessionsService {
       generatedOpenQuestionIds: inserted
         .filter((artifact) => artifact.artifactType === 'open_question')
         .map((artifact) => artifact.id),
+      structured,
     });
 
     return inserted;
@@ -1451,6 +1760,19 @@ export class SpecSessionsService {
       .update(specSessions)
       .set({ status, updatedAt: new Date() })
       .where(eq(specSessions.id, sessionId));
+  }
+
+  private async appendMessageAddedEvent(
+    sessionId: string,
+    messageId: string,
+    role: ConversationTurn['role'],
+  ): Promise<void> {
+    await this.events.append({
+      aggregateId: sessionId,
+      aggregateType: 'spec_session',
+      eventType: 'conversation.message_added',
+      payload: { messageId, role },
+    });
   }
 
   private async appendArtifactLinksToTurn(

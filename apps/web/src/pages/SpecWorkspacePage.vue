@@ -2,11 +2,8 @@
   <main v-if="workspace" class="workspace">
     <SpecTopBar />
     <section class="workspace-grid">
-      <RichSpecEditor class="editor-pane" />
-      <section class="side-pane-stack">
-        <ActionQueuePanel class="action-pane" />
-        <ChatPanel class="chat-pane" />
-      </section>
+      <DocumentPreviewPane class="preview-pane" />
+      <ChatPanel class="chat-pane" />
     </section>
     <ArtifactsDrawer />
     <ReviewDrawer />
@@ -22,9 +19,8 @@ import { useRoute } from 'vue-router';
 import ArtifactsDrawer from '@/widgets/artifacts-panel/ArtifactsDrawer.vue';
 import ReviewDrawer from '@/widgets/review-panel/ReviewDrawer.vue';
 import SpecTopBar from '@/widgets/spec-workspace/SpecTopBar.vue';
-import ActionQueuePanel from '@/widgets/spec-workspace/ActionQueuePanel.vue';
 import ChatPanel from '@/widgets/spec-workspace/ChatPanel.vue';
-import RichSpecEditor from '@/widgets/spec-workspace/RichSpecEditor.vue';
+import DocumentPreviewPane from '@/widgets/spec-workspace/DocumentPreviewPane.vue';
 import VersionHistoryDrawer from '@/widgets/version-history/VersionHistoryDrawer.vue';
 import ExportDialog from '@/features/export-spec/ExportDialog.vue';
 import SystemLogsDrawer from '@/features/system-logs/SystemLogsDrawer.vue';

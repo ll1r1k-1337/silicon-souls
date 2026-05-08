@@ -21,23 +21,27 @@ describe('API controller contracts', () => {
   });
 
   it('returns queued jobs from POST /spec-sessions/:sessionId/messages', async () => {
+    const sendUserMessage = vi.fn().mockResolvedValue({
+      messageId: 'msg_123',
+      jobs: [
+        { jobId: 'job_extract_123', type: 'extract_artifacts', status: 'queued' },
+        {
+          jobId: 'job_questions_123',
+          type: 'generate_clarifying_questions',
+          status: 'queued',
+        },
+      ],
+      status: 'clarifying',
+    });
     const controller = new SpecSessionsController({
-      sendUserMessage: vi.fn().mockResolvedValue({
-        messageId: 'msg_123',
-        jobs: [
-          { jobId: 'job_extract_123', type: 'extract_artifacts', status: 'queued' },
-          {
-            jobId: 'job_questions_123',
-            type: 'generate_clarifying_questions',
-            status: 'queued',
-          },
-        ],
-        status: 'clarifying',
-      }),
+      sendUserMessage,
     } as any);
 
     await expect(
-      controller.sendMessage('spec_123', { message: 'MVP must support expenses' }),
+      controller.sendMessage('spec_123', {
+        kind: 'text',
+        text: 'MVP must support expenses',
+      }),
     ).resolves.toMatchObject({
       messageId: 'msg_123',
       status: 'clarifying',
@@ -45,6 +49,17 @@ describe('API controller contracts', () => {
         { type: 'extract_artifacts', status: 'queued' },
         { type: 'generate_clarifying_questions', status: 'queued' },
       ],
+    });
+    expect(sendUserMessage).toHaveBeenCalledWith('spec_123', {
+      kind: 'text',
+      text: 'MVP must support expenses',
+    });
+
+    await expect(
+      controller.sendMessage('spec_123', { message: 'Legacy payload still works' }),
+    ).resolves.toMatchObject({
+      messageId: 'msg_123',
+      status: 'clarifying',
     });
   });
 
@@ -77,32 +92,8 @@ describe('API controller contracts', () => {
     );
   });
 
-  it('creates document comment threads and enqueues document assistant jobs', async () => {
-    const createDocumentCommentThread = vi.fn().mockResolvedValue({
-      id: 'dct_123',
-      status: 'open',
-      comments: [],
-      suggestions: [],
-    });
-    const enqueueDocumentAssistant = vi.fn().mockResolvedValue({
-      jobId: 'job_123',
-      type: 'document_assistant',
-      status: 'queued',
-    });
-    const getDocumentCommentThread = vi.fn().mockResolvedValue({
-      id: 'dct_123',
-      sessionId: 'spec_123',
-      status: 'open',
-      anchor: { selectedText: 'section' },
-      selectedText: 'section',
-      comments: [],
-      suggestions: [],
-    });
-    const controller = new SpecSessionsController({
-      createDocumentCommentThread,
-      getDocumentCommentThread,
-      enqueueDocumentAssistant,
-    } as any);
+  it('disables document assistant endpoints in chat-only mode', async () => {
+    const controller = new SpecSessionsController({} as any);
 
     await expect(
       controller.createDocumentCommentThread('spec_123', {
@@ -110,21 +101,17 @@ describe('API controller contracts', () => {
         selectedText: 'section',
         content: 'Please check this.',
       }),
-    ).resolves.toMatchObject({
-      thread: { id: 'dct_123' },
-      job: { jobId: 'job_123' },
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ statusCode: 409 }),
     });
 
     await expect(
       controller.documentAssistant('spec_123', {
         mode: 'comment',
         prompt: 'Find ambiguity.',
-        threadId: 'dct_123',
       }),
-    ).resolves.toMatchObject({
-      jobId: 'job_123',
-      type: 'document_assistant',
-      status: 'queued',
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ statusCode: 409 }),
     });
   });
 });
