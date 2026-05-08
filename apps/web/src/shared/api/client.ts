@@ -11,12 +11,21 @@ export class ApiError extends Error {
 const baseUrl = import.meta.env.VITE_API_URL ?? '/api';
 
 async function parseResponse(response: Response): Promise<unknown> {
-  const contentType = response.headers.get('content-type') ?? '';
-  if (contentType.includes('application/json')) {
-    return response.json();
+  if (response.status === 204 || response.status === 205) {
+    return undefined;
   }
 
-  return response.text();
+  const rawBody = await response.text();
+  if (rawBody.length === 0) {
+    return undefined;
+  }
+
+  const contentType = response.headers.get('content-type') ?? '';
+  if (contentType.includes('application/json')) {
+    return JSON.parse(rawBody) as unknown;
+  }
+
+  return rawBody;
 }
 
 export async function apiRequest<T>(
