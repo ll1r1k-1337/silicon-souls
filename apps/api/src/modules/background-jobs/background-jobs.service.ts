@@ -4,6 +4,7 @@ import { and, asc, eq, lte } from 'drizzle-orm';
 import { DatabaseService } from '../../shared/database/database.service';
 import { backgroundJobs, type BackgroundJobRow } from '../../shared/database/schema';
 import { EventStoreService } from '../../shared/events/event-store.service';
+import { RealtimeEventsService } from '../../shared/events/realtime-events.service';
 import { throwNotFound } from '../../shared/errors/not-found';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class BackgroundJobsService {
   constructor(
     private readonly database: DatabaseService,
     private readonly events: EventStoreService,
+    private readonly realtimeEvents: RealtimeEventsService,
   ) {}
 
   async createJob(params: {
@@ -43,6 +45,7 @@ export class BackgroundJobsService {
       eventType: 'llm_job.created',
       payload: { type: job.type, status: job.status },
     });
+    this.publishUpdate(job.id, job.payload);
 
     return job;
   }
@@ -129,6 +132,7 @@ export class BackgroundJobsService {
       eventType: 'llm_job.completed',
       payload: result,
     });
+    this.publishUpdate(id, result);
   }
 
   async failJob(id: string, error: unknown): Promise<void> {
@@ -157,6 +161,15 @@ export class BackgroundJobsService {
         error: error instanceof Error ? error.message : String(error),
         willRetry: !finalFailure,
       },
+    });
+    this.publishUpdate(id, { sessionId: job.payload.sessionId as string | undefined });
+  }
+
+  private publishUpdate(jobId: string, payload: Record<string, unknown>): void {
+    this.realtimeEvents.emit({
+      channel: 'background-job-updated',
+      jobId,
+      sessionId: typeof payload.sessionId === 'string' ? payload.sessionId : undefined,
     });
   }
 }

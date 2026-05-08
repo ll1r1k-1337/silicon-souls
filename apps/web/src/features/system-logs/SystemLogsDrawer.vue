@@ -93,6 +93,7 @@
 <script setup lang="ts">
 import { RefreshCw } from 'lucide-vue-next';
 import { computed, onUnmounted, watch } from 'vue';
+import { realtimeClient } from '@/shared/api/realtime';
 import AppDrawer from '@/shared/ui/AppDrawer.vue';
 import BaseButton from '@/shared/ui/BaseButton.vue';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
@@ -105,7 +106,7 @@ const ui = useUiStore();
 const sessionStore = useSpecSessionStore();
 const logs = useSystemLogStore();
 const sessionId = computed(() => sessionStore.session?.id);
-let pollTimer: ReturnType<typeof setInterval> | undefined;
+let unsubscribeRealtime: (() => void) | undefined;
 
 watch(
   () => [ui.systemLogsOpen, sessionId.value] as const,
@@ -113,9 +114,11 @@ watch(
     stopPolling();
     if (open) {
       void load();
-      pollTimer = setInterval(() => {
+      unsubscribeRealtime = realtimeClient.subscribe((event) => {
+        if (event.channel !== 'system-log-changed') return;
+        if (event.sessionId && event.sessionId !== sessionId.value) return;
         void load();
-      }, 2500);
+      });
     }
   },
   { immediate: true },
@@ -128,9 +131,9 @@ async function load(): Promise<void> {
 }
 
 function stopPolling(): void {
-  if (pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = undefined;
+  if (unsubscribeRealtime) {
+    unsubscribeRealtime();
+    unsubscribeRealtime = undefined;
   }
 }
 

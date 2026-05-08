@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { apiRequest } from '@/shared/api/client';
+import { realtimeClient } from '@/shared/api/realtime';
 import type { JobRef } from '@/types';
 
 interface JobState extends JobRef {
@@ -25,22 +26,32 @@ export const useBackgroundJobStore = defineStore('backgroundJobStore', {
       return job;
     },
     async poll(jobIds: string[], onComplete?: () => Promise<void>) {
-      for (const jobId of jobIds) {
-        await this.pollOne(jobId);
-      }
-      if (onComplete) {
-        await onComplete();
-      }
+      await Promise.all(jobIds.map((jobId) => this.pollOne(jobId)));
+      if (onComplete) await onComplete();
     },
     async pollOne(jobId: string) {
-      for (let attempt = 0; attempt < 60; attempt += 1) {
-        const job = await this.refresh(jobId);
-        if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
-          return job;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+      const initial = await this.refresh(jobId);
+      if (initial.status === 'completed' || initial.status === 'failed' || initial.status === 'cancelled') {
+        return initial;
       }
-      return this.jobs[jobId];
+
+      return await new Promise<JobState>((resolve) => {
+        const timeout = window.setTimeout(() => {
+          unsubscribe();
+          void this.refresh(jobId).then(resolve);
+        }, 120000);
+
+        const unsubscribe = realtimeClient.subscribe((event) => {
+          if (event.channel !== 'background-job-updated' || event.jobId !== jobId) return;
+          void this.refresh(jobId).then((job) => {
+            if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
+              window.clearTimeout(timeout);
+              unsubscribe();
+              resolve(job);
+            }
+          });
+        });
+      });
     },
   },
 });

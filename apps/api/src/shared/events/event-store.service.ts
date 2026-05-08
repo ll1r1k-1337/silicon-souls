@@ -2,10 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { createPrefixedId, nowIso } from '@sdd/domain';
 import { DatabaseService } from '../database/database.service';
 import { eventStore } from '../database/schema';
+import { RealtimeEventsService } from './realtime-events.service';
 
 @Injectable()
 export class EventStoreService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly realtimeEvents: RealtimeEventsService,
+  ) {}
 
   async append(params: {
     aggregateId: string;
@@ -24,6 +28,12 @@ export class EventStoreService {
       payload: params.payload,
       metadata: params.metadata ?? {},
       createdAt: new Date(nowIso()),
+    });
+
+    this.realtimeEvents.emit({
+      channel: 'system-log-changed',
+      sessionId: typeof params.payload.sessionId === 'string' ? params.payload.sessionId : undefined,
+      payload: { aggregateId: params.aggregateId, eventType: params.eventType },
     });
 
     return id;
