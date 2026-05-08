@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { z } from 'zod';
 import { ProjectsService } from './projects.service';
 
@@ -26,5 +26,11 @@ export class ProjectsController {
   @Get(':projectId')
   async get(@Param('projectId') projectId: string): Promise<Record<string, unknown>> {
     return { project: await this.projects.get(projectId) };
+  }
+
+  @Delete(':projectId')
+  async delete(@Param('projectId') projectId: string): Promise<Record<string, unknown>> {
+    await this.projects.delete(projectId);
+    return { deleted: true, projectId };
   }
 }

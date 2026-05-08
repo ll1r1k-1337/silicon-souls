@@ -9,6 +9,32 @@ import {
   RiskSchema,
 } from '@sdd/schemas';
 
+const LlmRequirementSchema = RequirementSchema.extend({
+  rationale: z.string().nullable(),
+});
+
+const LlmOpenQuestionSchema = z.object({
+  id: z.string().min(1),
+  sessionId: z.string().min(1),
+  question: z.string().min(1),
+  whyItMatters: z.string().min(1),
+  severity: z.enum(['minor', 'normal', 'important', 'blocking']),
+  status: z.enum(['open', 'answered', 'converted_to_assumption', 'dismissed']),
+  answerMode: z.enum(['free_text', 'single_choice', 'multiple_choice']).nullable(),
+  suggestedAnswers: z.array(z.string()).nullable(),
+  allowOtherAnswer: z.boolean().nullable(),
+  otherAnswerLabel: z.string().nullable(),
+  answer: z.string().nullable(),
+  customAnswer: z.string().nullable(),
+  relatedRequirementIds: z.array(z.string()),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+const LlmRiskSchema = RiskSchema.extend({
+  mitigation: z.string().nullable(),
+});
+
 export const InterviewerInputSchema = z.object({
   rawIdea: z.string(),
   currentSpec: ProductSpecJsonSchema.optional(),
@@ -17,12 +43,17 @@ export const InterviewerInputSchema = z.object({
 });
 
 export const InterviewerOutputSchema = z.object({
+  assistantMessage: z.string(),
+  thinkingSummary: z.string().nullable(),
   questions: z.array(
     z.object({
       question: z.string(),
       whyItMatters: z.string(),
       severity: z.enum(['minor', 'normal', 'important', 'blocking']),
-      suggestedAnswers: z.array(z.string()).optional(),
+      answerMode: z.enum(['free_text', 'single_choice', 'multiple_choice']).nullable(),
+      suggestedAnswers: z.array(z.string()).nullable(),
+      allowOtherAnswer: z.boolean().nullable(),
+      otherAnswerLabel: z.string().nullable(),
     }),
   ),
 });
@@ -47,12 +78,12 @@ export const ExtractorInputSchema = z.object({
 });
 
 export const ExtractorOutputSchema = z.object({
-  requirements: z.array(RequirementSchema),
+  requirements: z.array(LlmRequirementSchema),
   assumptions: z.array(AssumptionSchema),
   decisions: z.array(DecisionSchema),
-  openQuestions: z.array(OpenQuestionSchema),
-  risks: z.array(RiskSchema),
-  acceptanceCriteria: z.array(AcceptanceCriterionSchema).default([]),
+  openQuestions: z.array(LlmOpenQuestionSchema),
+  risks: z.array(LlmRiskSchema),
+  acceptanceCriteria: z.array(AcceptanceCriterionSchema),
 });
 
 export const SpecWriterInputSchema = z.object({
@@ -90,8 +121,8 @@ export const CriticOutputSchema = z.object({
       recommendation: z.string(),
     }),
   ),
-  risks: z.array(RiskSchema),
-  suggestedQuestions: z.array(OpenQuestionSchema),
+  risks: z.array(LlmRiskSchema),
+  suggestedQuestions: z.array(LlmOpenQuestionSchema),
 });
 
 export const ReviewerOutputSchema = z.object({

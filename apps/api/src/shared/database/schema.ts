@@ -74,6 +74,7 @@ export const specVersions = pgTable(
     version: text('version').notNull(),
     status: text('status').notNull(),
     markdownSnapshot: text('markdown_snapshot').notNull(),
+    documentContentSnapshot: jsonb('document_content_snapshot').$type<Record<string, unknown>>(),
     jsonSnapshot: jsonb('json_snapshot').$type<Record<string, unknown>>().notNull(),
     changeSummary: text('change_summary'),
     createdBy: text('created_by').notNull(),
@@ -125,11 +126,81 @@ export const specDocuments = pgTable('spec_documents', {
     .notNull()
     .references(() => specSessions.id),
   currentVersionId: text('current_version_id'),
+  contentJson: jsonb('content_json').$type<Record<string, unknown>>(),
+  schemaVersion: text('schema_version').notNull().default('tiptap.v1'),
+  projectionStatus: text('projection_status').notNull().default('synced'),
   markdown: text('markdown').notNull(),
   dirty: boolean('dirty').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
 });
+
+export const documentCommentThreads = pgTable(
+  'document_comment_threads',
+  {
+    id: text('id').primaryKey(),
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => specSessions.id),
+    documentId: text('document_id').references(() => specDocuments.id),
+    versionId: text('version_id').references(() => specVersions.id),
+    status: text('status').notNull(),
+    anchor: jsonb('anchor').$type<Record<string, unknown>>().notNull().default({}),
+    selectedText: text('selected_text'),
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+  },
+  (table) => ({
+    sessionStatusIdx: index('idx_document_comment_threads_session_status').on(
+      table.sessionId,
+      table.status,
+    ),
+  }),
+);
+
+export const documentComments = pgTable(
+  'document_comments',
+  {
+    id: text('id').primaryKey(),
+    threadId: text('thread_id')
+      .notNull()
+      .references(() => documentCommentThreads.id),
+    author: text('author').notNull(),
+    content: text('content').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  },
+  (table) => ({
+    threadCreatedIdx: index('idx_document_comments_thread_created').on(
+      table.threadId,
+      table.createdAt,
+    ),
+  }),
+);
+
+export const documentSuggestions = pgTable(
+  'document_suggestions',
+  {
+    id: text('id').primaryKey(),
+    threadId: text('thread_id')
+      .notNull()
+      .references(() => documentCommentThreads.id),
+    status: text('status').notNull(),
+    replacementMarkdown: text('replacement_markdown'),
+    replacementContentJson: jsonb('replacement_content_json').$type<Record<string, unknown>>(),
+    rationale: text('rationale'),
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+  },
+  (table) => ({
+    threadStatusIdx: index('idx_document_suggestions_thread_status').on(
+      table.threadId,
+      table.status,
+    ),
+  }),
+);
 
 export const backgroundJobs = pgTable(
   'background_jobs',
@@ -192,6 +263,10 @@ export type SpecSessionRow = typeof specSessions.$inferSelect;
 export type ConversationTurnRow = typeof conversationTurns.$inferSelect;
 export type SpecArtifactRow = typeof specArtifacts.$inferSelect;
 export type SpecVersionRow = typeof specVersions.$inferSelect;
+export type SpecDocumentRow = typeof specDocuments.$inferSelect;
+export type DocumentCommentThreadRow = typeof documentCommentThreads.$inferSelect;
+export type DocumentCommentRow = typeof documentComments.$inferSelect;
+export type DocumentSuggestionRow = typeof documentSuggestions.$inferSelect;
 export type ReviewReportRow = typeof reviewReports.$inferSelect;
 export type BackgroundJobRow = typeof backgroundJobs.$inferSelect;
 export type LlmProviderSettingsRow = typeof llmProviderSettings.$inferSelect;

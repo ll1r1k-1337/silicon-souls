@@ -1,6 +1,14 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "rootDir": "../.."
-  }
+    "rootDir": "../..",
+    "baseUrl": "../..",
+    "paths": {
+      "@sdd/domain": ["packages/domain/src/index.ts"],
+      "@sdd/schemas": ["packages/schemas/src/index.ts"],
+      "@sdd/llm-contracts": ["packages/llm-contracts/src/index.ts"],
+      "@sdd/spec-format": ["packages/spec-format/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }

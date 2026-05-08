@@ -29,11 +29,49 @@ function byType<T>(artifacts: SpecArtifact[], type: string): T[] {
     .map((artifact) => artifact.payload as T);
 }
 
+const openQuestionStatuses = new Set<OpenQuestion['status']>([
+  'open',
+  'answered',
+  'converted_to_assumption',
+  'dismissed',
+]);
+
+function openQuestionsFromArtifacts(artifacts: SpecArtifact[]): OpenQuestion[] {
+  return artifacts
+    .filter((artifact) => artifact.artifactType === 'open_question' && artifact.status !== 'rejected')
+    .map((artifact) => {
+      const payload = artifact.payload as OpenQuestion & Record<string, unknown>;
+      return {
+        ...payload,
+        status: normalizeOpenQuestionStatus(payload.status, artifact.status, payload.answer),
+      };
+    });
+}
+
+function normalizeOpenQuestionStatus(
+  payloadStatus: unknown,
+  artifactStatus: string,
+  answer: unknown,
+): OpenQuestion['status'] {
+  if (
+    typeof payloadStatus === 'string' &&
+    openQuestionStatuses.has(payloadStatus as OpenQuestion['status'])
+  ) {
+    return payloadStatus as OpenQuestion['status'];
+  }
+
+  if (artifactStatus === 'answered' || (typeof answer === 'string' && answer.trim())) {
+    return 'answered';
+  }
+
+  return 'open';
+}
+
 export function buildProductSpecJson(input: BuildProductSpecInput): ProductSpecJson {
   const now = nowIso();
   const requirements = byType<Requirement>(input.artifacts, 'requirement');
   const assumptions = byType<Assumption>(input.artifacts, 'assumption');
-  const openQuestions = byType<OpenQuestion>(input.artifacts, 'open_question');
+  const openQuestions = openQuestionsFromArtifacts(input.artifacts);
   const acceptanceCriteria = byType<AcceptanceCriterion>(
     input.artifacts,
     'acceptance_criterion',

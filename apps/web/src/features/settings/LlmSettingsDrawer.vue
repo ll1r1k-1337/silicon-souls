@@ -1,13 +1,23 @@
 <template>
   <AppDrawer :open="ui.settingsOpen" title="LLM Settings" @close="ui.settingsOpen = false">
-    <form class="settings-form" @submit.prevent="save">
+    <form class="settings-form" data-testid="llm-settings-form" @submit.prevent="save">
       <label>
         <span>BASE_URL</span>
-        <input v-model="baseUrl" class="input" placeholder="https://api.openai.com/v1" />
+        <input
+          v-model="baseUrl"
+          class="input"
+          placeholder="https://api.openai.com/v1"
+          data-testid="llm-base-url-input"
+        />
       </label>
       <label>
         <span>Model</span>
-        <input v-model="model" class="input" placeholder="gpt-5.2" />
+        <input
+          v-model="model"
+          class="input"
+          placeholder="gpt-5.2"
+          data-testid="llm-model-input"
+        />
       </label>
       <label>
         <span>API_KEY</span>
@@ -20,7 +30,7 @@
         />
       </label>
 
-      <div class="settings-status">
+      <div class="settings-status" data-testid="llm-settings-status">
         <StatusBadge
           :label="settings.llm?.isConfigured ? 'configured' : 'not configured'"
           :tone="settings.llm?.isConfigured ? 'success' : 'warning'"
@@ -28,7 +38,12 @@
         <span v-if="settings.llm?.apiKeyMasked">{{ settings.llm.apiKeyMasked }}</span>
       </div>
 
-      <div v-if="settings.testResult" class="test-result" :data-ok="settings.testResult.ok">
+      <div
+        v-if="settings.testResult"
+        class="test-result"
+        :data-ok="settings.testResult.ok"
+        data-testid="llm-test-result"
+      >
         <strong>{{ settings.testResult.message }}</strong>
         <p v-if="settings.testResult.error">{{ settings.testResult.error }}</p>
       </div>
@@ -37,7 +52,7 @@
 
       <div class="settings-actions">
         <BaseButton :icon="PlugZap" variant="secondary" type="button" @click="test">
-          {{ settings.testing ? 'Testing' : 'Test connection' }}
+          {{ settings.testing ? 'Testing' : 'Test structured output' }}
         </BaseButton>
         <BaseButton :icon="Save" variant="primary" :disabled="!canSave">
           {{ settings.saving ? 'Saving' : 'Save' }}

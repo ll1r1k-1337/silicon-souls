@@ -31,6 +31,15 @@ export const useProjectStore = defineStore('projectStore', {
       await this.loadProjects();
       return response.project;
     },
+    async deleteProject(projectId: string) {
+      await apiRequest<{ deleted: boolean; projectId: string }>(`/projects/${projectId}`, {
+        method: 'DELETE',
+      });
+      if (this.currentProject?.id === projectId) {
+        this.currentProject = undefined;
+      }
+      this.projects = this.projects.filter((project) => project.id !== projectId);
+    },
     async loadProject(projectId: string) {
       const response = await apiRequest<{ project: Project }>(`/projects/${projectId}`);
       this.currentProject = response.project;

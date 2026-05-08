@@ -80,8 +80,12 @@ export const OpenQuestionSchema = z.object({
   whyItMatters: z.string().min(1),
   severity: z.enum(['minor', 'normal', 'important', 'blocking']),
   status: z.enum(['open', 'answered', 'converted_to_assumption', 'dismissed']),
+  answerMode: z.enum(['free_text', 'single_choice', 'multiple_choice']).optional(),
   suggestedAnswers: z.array(z.string()).optional(),
+  allowOtherAnswer: z.boolean().optional(),
+  otherAnswerLabel: z.string().optional(),
   answer: z.string().optional(),
+  customAnswer: z.string().optional(),
   relatedRequirementIds: z.array(z.string()),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -227,6 +231,56 @@ export const SpecArtifactSchema = z.object({
   status: z.string().min(1),
   payload: z.unknown(),
   source: ArtifactSourceSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const RichDocumentContentSchema = z.record(z.unknown()).refine(
+  (value) => value.type === 'doc',
+  'Rich document content must be a Tiptap doc node.',
+);
+
+export const DocumentProjectionStatusSchema = z.enum(['synced', 'stale', 'failed']);
+
+export const DocumentAnchorSchema = z.object({
+  from: z.number().int().min(0).optional(),
+  to: z.number().int().min(0).optional(),
+  selectedText: z.string().optional(),
+  documentVersionId: z.string().optional(),
+});
+
+export const DocumentCommentSchema = z.object({
+  id: z.string().min(1),
+  threadId: z.string().min(1),
+  author: z.enum(['user', 'assistant', 'system']),
+  content: z.string().min(1),
+  createdAt: z.string(),
+});
+
+export const DocumentSuggestionSchema = z.object({
+  id: z.string().min(1),
+  threadId: z.string().min(1),
+  status: z.enum(['pending', 'accepted', 'rejected']),
+  replacementMarkdown: z.string().optional(),
+  replacementContentJson: RichDocumentContentSchema.optional(),
+  rationale: z.string().optional(),
+  createdBy: z.enum(['assistant', 'user', 'system']),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  acceptedAt: z.string().optional(),
+});
+
+export const DocumentCommentThreadSchema = z.object({
+  id: z.string().min(1),
+  sessionId: z.string().min(1),
+  documentId: z.string().optional(),
+  versionId: z.string().optional(),
+  status: z.enum(['open', 'resolved']),
+  anchor: DocumentAnchorSchema,
+  selectedText: z.string().optional(),
+  createdBy: z.enum(['user', 'assistant', 'system']),
+  comments: z.array(DocumentCommentSchema),
+  suggestions: z.array(DocumentSuggestionSchema),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

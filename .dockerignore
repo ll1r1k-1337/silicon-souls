@@ -8,10 +8,14 @@ coverage
 **/coverage
 .env
 .env.local
+.env.e2e
+.env.e2e.local
 .DS_Store
 .turbo
 .vite
 **/.vite
 *.log
+apps/e2e/playwright-report
+apps/e2e/test-results
 tmp
 apps/api/migrations/meta

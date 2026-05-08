@@ -6,12 +6,14 @@ WORKDIR /app
 
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
-COPY package.json pnpm-workspace.yaml tsconfig.base.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
+COPY apps/e2e/package.json apps/e2e/package.json
 COPY packages/domain/package.json packages/domain/package.json
 COPY packages/schemas/package.json packages/schemas/package.json
 COPY packages/llm-contracts/package.json packages/llm-contracts/package.json
@@ -31,3 +33,29 @@ CMD ["pnpm", "--filter", "@sdd/api", "worker"]
 FROM base AS web
 EXPOSE 5173
 CMD ["pnpm", "--filter", "@sdd/web", "dev"]
+
+FROM mcr.microsoft.com/playwright:v1.59.1-noble AS e2e
+
+WORKDIR /app
+
+ENV CI=true
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY apps/e2e/package.json apps/e2e/package.json
+COPY packages/domain/package.json packages/domain/package.json
+COPY packages/schemas/package.json packages/schemas/package.json
+COPY packages/llm-contracts/package.json packages/llm-contracts/package.json
+COPY packages/spec-format/package.json packages/spec-format/package.json
+
+RUN pnpm install --frozen-lockfile=false
+
+COPY . .
+
+CMD ["pnpm", "--filter", "@sdd/e2e", "e2e"]

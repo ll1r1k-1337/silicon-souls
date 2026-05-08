@@ -45,6 +45,8 @@ export async function apiRequest<T>(
   return parsed as T;
 }
 
-export function exportUrl(sessionId: string, format: 'markdown' | 'json' | 'bundle'): string {
+export type ExportFormat = 'markdown' | 'json' | 'bundle' | 'llm-prompt';
+
+export function exportUrl(sessionId: string, format: ExportFormat): string {
   return `${baseUrl}/spec-sessions/${sessionId}/export?format=${format}`;
 }

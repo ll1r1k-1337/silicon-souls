@@ -21,6 +21,10 @@
             <PackageOpen :size="20" />
             <span>Bundle</span>
           </a>
+          <a class="export-tile" :href="url('llm-prompt')" target="_blank">
+            <FileCode2 :size="20" />
+            <span>LLM Prompt</span>
+          </a>
         </div>
         <ul class="bundle-list">
           <li>product.md</li>
@@ -31,6 +35,7 @@
           <li>risks.json</li>
           <li>changelog.md</li>
           <li>spec-meta.json</li>
+          <li>llm-prompt.md</li>
         </ul>
       </section>
     </div>
@@ -38,15 +43,15 @@
 </template>
 
 <script setup lang="ts">
-import { Braces, FileText, PackageOpen, X } from 'lucide-vue-next';
-import { exportUrl } from '@/shared/api/client';
+import { Braces, FileCode2, FileText, PackageOpen, X } from 'lucide-vue-next';
+import { exportUrl, type ExportFormat } from '@/shared/api/client';
 import { useSpecSessionStore } from '@/stores/specSessionStore';
 import { useUiStore } from '@/stores/uiStore';
 
 const ui = useUiStore();
 const store = useSpecSessionStore();
 
-function url(format: 'markdown' | 'json' | 'bundle') {
+function url(format: ExportFormat) {
   return store.session ? exportUrl(store.session.id, format) : '#';
 }
 </script>

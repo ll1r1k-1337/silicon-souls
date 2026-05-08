@@ -7,6 +7,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { SpecArtifactsModule } from './modules/spec-artifacts/spec-artifacts.module';
 import { SpecSessionsModule } from './modules/spec-sessions/spec-sessions.module';
+import { SystemLogsModule } from './modules/system-logs/system-logs.module';
 import { DatabaseModule } from './shared/database/database.module';
 import { EventStoreModule } from './shared/events/event-store.module';
 
@@ -22,6 +23,7 @@ import { EventStoreModule } from './shared/events/event-store.module';
     SpecSessionsModule,
     SpecArtifactsModule,
     ExportsModule,
+    SystemLogsModule,
   ],
 })
 export class AppModule {}

@@ -4,10 +4,7 @@ import type {
   AcceptanceCriterion,
   Assumption,
   Decision,
-  OpenQuestion,
   ProductSpecJson,
-  Requirement,
-  Risk,
 } from '@sdd/domain';
 import type { ExtractorInput } from '@sdd/llm-contracts';
 import type {
@@ -46,17 +43,28 @@ export class MockLlmProvider implements LlmProvider {
 
     if (chainName === 'interviewer') {
       return {
+        assistantMessage:
+          'I reviewed the latest input and identified the next clarifying points for the specification.',
+        thinkingSummary:
+          'The response focuses on missing product boundaries that can block approval.',
         questions: [
           {
             question: 'Who are the primary target users for this product?',
             whyItMatters: 'Target users are required before approval and shape core scenarios.',
             severity: 'blocking',
+            answerMode: 'single_choice',
             suggestedAnswers: ['Internal product owner', 'End customers', 'Operations team'],
+            allowOtherAnswer: true,
+            otherAnswerLabel: 'Other',
           },
           {
             question: 'What is explicitly out of scope for the first approved specification?',
             whyItMatters: 'Non-goals are required for approval and prevent scope drift.',
             severity: 'important',
+            answerMode: 'free_text',
+            suggestedAnswers: null,
+            allowOtherAnswer: null,
+            otherAnswerLabel: null,
           },
         ],
       };
@@ -102,11 +110,11 @@ export class MockLlmProvider implements LlmProvider {
   }
 
   private extract(input: ExtractorInput): {
-    requirements: Requirement[];
+    requirements: Array<Record<string, unknown>>;
     assumptions: Assumption[];
     decisions: Decision[];
-    openQuestions: OpenQuestion[];
-    risks: Risk[];
+    openQuestions: Array<Record<string, unknown>>;
+    risks: Array<Record<string, unknown>>;
     acceptanceCriteria: AcceptanceCriterion[];
   } {
     const now = nowIso();
@@ -119,7 +127,7 @@ export class MockLlmProvider implements LlmProvider {
         .join(' ')
         .replace(/[^\w\s-]/g, '') || 'User requirement';
 
-    const requirement: Requirement = {
+    const requirement: Record<string, unknown> = {
       id: requirementId,
       sessionId: input.sessionId,
       type: 'functional',
@@ -129,6 +137,7 @@ export class MockLlmProvider implements LlmProvider {
       status: 'confirmed',
       source: { type: 'user_explicit', confidence: 0.85, requiresUserConfirmation: false },
       sourceTurnIds: input.conversationContext.at(-1)?.id ? [input.conversationContext.at(-1)!.id] : [],
+      rationale: null,
       dependencies: [],
       conflictsWith: [],
       acceptanceCriteriaIds: [],
@@ -166,7 +175,7 @@ export class MockLlmProvider implements LlmProvider {
         ]
       : [];
 
-    const risks: Risk[] = /risk/i.test(text)
+    const risks: Array<Record<string, unknown>> = /risk/i.test(text)
       ? [
           {
             id: createPrefixedId('risk'),
@@ -174,6 +183,7 @@ export class MockLlmProvider implements LlmProvider {
             title: 'User mentioned risk',
             description: text,
             level: 'medium',
+            mitigation: null,
             status: 'identified',
             relatedRequirementIds: [requirementId],
             createdAt: now,
@@ -237,6 +247,12 @@ export class MockLlmProvider implements LlmProvider {
         whyItMatters: String(gap.description),
         severity: gap.severity === 'blocking' ? 'blocking' : 'important',
         status: 'open',
+        answerMode: 'free_text',
+        suggestedAnswers: null,
+        allowOtherAnswer: null,
+        otherAnswerLabel: null,
+        answer: null,
+        customAnswer: null,
         relatedRequirementIds: [],
         createdAt: nowIso(),
         updatedAt: nowIso(),

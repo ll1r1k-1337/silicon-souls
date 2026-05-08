@@ -8,7 +8,7 @@ export class ExportsController {
   @Get()
   async export(
     @Param('sessionId') sessionId: string,
-    @Query('format') format: 'markdown' | 'json' | 'bundle' = 'markdown',
+    @Query('format') format: 'markdown' | 'json' | 'bundle' | 'llm-prompt' = 'markdown',
     @Res() response: any,
   ): Promise<void> {
     if (format === 'json') {
@@ -22,6 +22,11 @@ export class ExportsController {
         .type('application/zip')
         .attachment(`stage0-${sessionId}.zip`)
         .send(bundle);
+      return;
+    }
+
+    if (format === 'llm-prompt') {
+      response.type('text/markdown').send(await this.exportsService.exportLlmPrompt(sessionId));
       return;
     }
 

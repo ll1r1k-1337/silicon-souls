@@ -1,9 +1,35 @@
 import { defineStore } from 'pinia';
 import type { SpecArtifact } from '@sdd/domain';
 import { apiRequest } from '@/shared/api/client';
-import type { JobRef, WorkspaceState } from '@/types';
+import type {
+  DocumentAnchor,
+  DocumentCommentThread,
+  DocumentSuggestion,
+  JobRef,
+  RichDocumentContent,
+  WorkspaceState,
+} from '@/types';
 import { useBackgroundJobStore } from './backgroundJobStore';
 import { useLocalDraftStore } from './localDraftStore';
+
+interface ArtifactUpdateResponse {
+  artifact: SpecArtifact;
+  reaction?: {
+    jobs?: JobRef[];
+  };
+}
+
+function trackJobs(jobs: Array<JobRef | undefined>, onComplete?: () => Promise<void>): void {
+  const definedJobs = jobs.filter((job): job is JobRef => Boolean(job));
+  if (definedJobs.length === 0) return;
+
+  const jobStore = useBackgroundJobStore();
+  definedJobs.forEach((job) => jobStore.track(job));
+  void jobStore.poll(
+    definedJobs.map((job) => job.jobId),
+    onComplete,
+  );
+}
 
 export const useSpecSessionStore = defineStore('specSessionStore', {
   state: () => ({
@@ -15,6 +41,7 @@ export const useSpecSessionStore = defineStore('specSessionStore', {
     session: (state) => state.workspace?.session,
     document: (state) => state.workspace?.document,
     artifacts: (state) => state.workspace?.artifacts ?? [],
+    commentThreads: (state) => state.workspace?.commentThreads ?? [],
     review: (state) => state.workspace?.review,
     versions: (state) => state.workspace?.versions ?? [],
     canApprove: (state) => Boolean(state.workspace?.review?.canApprove),
@@ -75,12 +102,19 @@ export const useSpecSessionStore = defineStore('specSessionStore', {
       });
       await this.loadWorkspace(this.workspace.session.id);
     },
-    async saveDocument(markdown: string, changeSummary = 'Direct markdown edit') {
+    async saveDocument(
+      contentJson: RichDocumentContent,
+      markdown: string,
+      changeSummary = 'Direct document edit',
+      projectionStatus: 'synced' | 'stale' | 'failed' = 'stale',
+    ) {
       if (!this.workspace) return;
       await apiRequest(`/spec-sessions/${this.workspace.session.id}/document`, {
         method: 'PATCH',
         body: JSON.stringify({
+          contentJson,
           markdown,
+          projectionStatus,
           baseVersionId: this.workspace.session.currentVersionId,
           changeSummary,
         }),
@@ -88,13 +122,125 @@ export const useSpecSessionStore = defineStore('specSessionStore', {
       useLocalDraftStore().clearDraft(this.workspace.session.id);
       await this.loadWorkspace(this.workspace.session.id);
     },
-    async updateArtifact(artifact: SpecArtifact, action: 'confirm' | 'reject' | 'edit') {
-      await apiRequest(`/spec-artifacts/${artifact.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ action }),
+    async createCommentThread(input: {
+      anchor: DocumentAnchor;
+      selectedText?: string;
+      content: string;
+    }) {
+      if (!this.workspace) return undefined;
+      const response = await apiRequest<{ thread: DocumentCommentThread; job?: JobRef }>(
+        `/spec-sessions/${this.workspace.session.id}/document/comments`,
+        {
+          method: 'POST',
+          body: JSON.stringify(input),
+        },
+      );
+      this.workspace.commentThreads = [response.thread, ...this.workspace.commentThreads];
+      trackJobs([response.job], async () => {
+        if (this.workspace) {
+          await this.loadWorkspace(this.workspace.session.id);
+        }
       });
+      return response.thread;
+    },
+    async addComment(threadId: string, content: string) {
+      if (!this.workspace) return;
+      const response = await apiRequest<{ job?: JobRef }>(`/document-comment-threads/${threadId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ content }),
+      });
+      trackJobs([response.job], async () => {
+        if (this.workspace) {
+          await this.loadWorkspace(this.workspace.session.id);
+        }
+      });
+      await this.loadWorkspace(this.workspace.session.id);
+    },
+    async updateCommentThread(threadId: string, status: 'open' | 'resolved') {
+      if (!this.workspace) return;
+      await apiRequest(`/document-comment-threads/${threadId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      await this.loadWorkspace(this.workspace.session.id);
+    },
+    async updateSuggestion(suggestionId: string, status: 'pending' | 'accepted' | 'rejected') {
+      if (!this.workspace) return undefined;
+      const response = await apiRequest<{ suggestion: DocumentSuggestion }>(
+        `/document-suggestions/${suggestionId}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ status }),
+        },
+      );
+      await this.loadWorkspace(this.workspace.session.id);
+      return response.suggestion;
+    },
+    async requestDocumentAssistant(input: {
+      mode: 'comment' | 'suggestion';
+      prompt: string;
+      threadId?: string;
+      anchor?: DocumentAnchor;
+      selectedText?: string;
+    }) {
+      if (!this.workspace) return;
+      const response = await apiRequest<JobRef>(
+        `/spec-sessions/${this.workspace.session.id}/document/assistant`,
+        {
+          method: 'POST',
+          body: JSON.stringify(input),
+        },
+      );
+      const jobStore = useBackgroundJobStore();
+      jobStore.track(response);
+      void jobStore.poll([response.jobId], async () => {
+        if (this.workspace) {
+          await this.loadWorkspace(this.workspace.session.id);
+        }
+      });
+    },
+    async updateArtifact(artifact: SpecArtifact, action: 'confirm' | 'reject' | 'edit') {
+      await this.patchArtifact(artifact, { action });
+    },
+    async saveOpenQuestionAnswer(
+      artifact: SpecArtifact,
+      answer: string,
+      selectedAnswers: string[] = [],
+      customAnswer = '',
+    ) {
+      await this.patchArtifact(artifact, {
+        status: 'answered',
+        payload: {
+          answer,
+          selectedAnswers,
+          customAnswer,
+          status: 'answered',
+        },
+      });
+    },
+    async patchArtifact(
+      artifact: SpecArtifact,
+      body: {
+        action?: 'confirm' | 'reject' | 'edit';
+        status?: string;
+        payload?: Record<string, unknown>;
+      },
+    ) {
+      const response = await apiRequest<ArtifactUpdateResponse>(`/spec-artifacts/${artifact.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      });
+      const jobs = response.reaction?.jobs ?? [];
+      const jobStore = useBackgroundJobStore();
+      jobs.forEach((job) => jobStore.track(job));
       if (this.workspace) {
         await this.loadWorkspace(this.workspace.session.id);
+      }
+      if (jobs.length > 0) {
+        void jobStore.poll(
+          jobs.map((job) => job.jobId),
+          async () => this.workspace && this.loadWorkspace(this.workspace.session.id),
+        );
       }
     },
     async enqueueAndPoll(action: 'generate-draft' | 'review') {

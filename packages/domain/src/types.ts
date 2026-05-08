@@ -29,6 +29,8 @@ export interface SpecSession {
   id: string;
   projectId: string;
   status: SpecStatus;
+  statusLabel?: string;
+  statusDescription?: string;
   rawIdea: string;
   currentVersionId?: string;
   createdAt: string;
@@ -43,10 +45,64 @@ export interface ConversationTurn {
   role: 'user' | 'assistant' | 'system';
   content: string;
   createdAt: string;
+  thinkingSummary?: string;
   extractedFactIds: string[];
   extractedRequirementIds: string[];
   extractedAssumptionIds: string[];
   extractedDecisionIds: string[];
+  generatedArtifactIds: string[];
+  generatedOpenQuestionIds: string[];
+}
+
+export type RichDocumentContent = Record<string, unknown>;
+
+export type DocumentProjectionStatus = 'synced' | 'stale' | 'failed';
+
+export interface DocumentAnchor {
+  from?: number;
+  to?: number;
+  selectedText?: string;
+  documentVersionId?: string;
+}
+
+export type DocumentCommentThreadStatus = 'open' | 'resolved';
+
+export interface DocumentComment {
+  id: string;
+  threadId: string;
+  author: 'user' | 'assistant' | 'system';
+  content: string;
+  createdAt: string;
+}
+
+export type DocumentSuggestionStatus = 'pending' | 'accepted' | 'rejected';
+
+export interface DocumentSuggestion {
+  id: string;
+  threadId: string;
+  status: DocumentSuggestionStatus;
+  replacementMarkdown?: string;
+  replacementContentJson?: RichDocumentContent;
+  rationale?: string;
+  createdBy: 'assistant' | 'user' | 'system';
+  createdAt: string;
+  updatedAt: string;
+  acceptedAt?: string;
+}
+
+export interface DocumentCommentThread {
+  id: string;
+  sessionId: string;
+  documentId?: string;
+  versionId?: string;
+  status: DocumentCommentThreadStatus;
+  anchor: DocumentAnchor;
+  selectedText?: string;
+  createdBy: 'user' | 'assistant' | 'system';
+  comments: DocumentComment[];
+  suggestions: DocumentSuggestion[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type ArtifactSourceType =
@@ -135,8 +191,12 @@ export interface OpenQuestion {
   whyItMatters: string;
   severity: OpenQuestionSeverity;
   status: OpenQuestionStatus;
+  answerMode?: 'free_text' | 'single_choice' | 'multiple_choice';
   suggestedAnswers?: string[];
+  allowOtherAnswer?: boolean;
+  otherAnswerLabel?: string;
   answer?: string;
+  customAnswer?: string;
   relatedRequirementIds: string[];
   createdAt: string;
   updatedAt: string;
@@ -270,6 +330,7 @@ export interface SpecVersion {
   version: string;
   status: SpecStatus;
   markdownSnapshot: string;
+  documentContentSnapshot?: RichDocumentContent;
   jsonSnapshot: ProductSpecJson;
   changeSummary: string;
   createdAt: string;
@@ -310,6 +371,7 @@ export type BackgroundJobType =
   | 'run_reviewer'
   | 'run_review'
   | 'apply_change_request'
+  | 'document_assistant'
   | 'export_bundle';
 
 export type BackgroundJobStatus =

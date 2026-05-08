@@ -8,6 +8,8 @@ import { throwNotFound } from '../../shared/errors/not-found';
 
 @Injectable()
 export class BackgroundJobsService {
+  private readonly staleRunningJobMs = 5 * 60 * 1000;
+
   constructor(
     private readonly database: DatabaseService,
     private readonly events: EventStoreService,
@@ -60,6 +62,8 @@ export class BackgroundJobsService {
   }
 
   async claimNext(workerId: string): Promise<BackgroundJobRow | undefined> {
+    await this.requeueStaleRunningJobs();
+
     const [candidate] = await this.database.db
       .select()
       .from(backgroundJobs)
@@ -86,6 +90,24 @@ export class BackgroundJobsService {
       .returning();
 
     return job;
+  }
+
+  private async requeueStaleRunningJobs(): Promise<void> {
+    await this.database.db
+      .update(backgroundJobs)
+      .set({
+        status: 'queued',
+        lockedAt: null,
+        lockedBy: null,
+        runAfter: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(backgroundJobs.status, 'running'),
+          lte(backgroundJobs.lockedAt, new Date(Date.now() - this.staleRunningJobMs)),
+        ),
+      );
   }
 
   async completeJob(id: string, result: Record<string, unknown>): Promise<void> {

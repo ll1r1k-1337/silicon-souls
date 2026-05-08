@@ -18,24 +18,6 @@ export interface OpenAiCompatibleProviderConfig {
   maxRetries: number;
 }
 
-function extractJson(text: string): unknown {
-  const trimmed = text.trim();
-  const withoutFence = trimmed
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/i, '')
-    .trim();
-  const firstObject = withoutFence.indexOf('{');
-  const firstArray = withoutFence.indexOf('[');
-  const startCandidates = [firstObject, firstArray].filter((index) => index >= 0);
-  const start = startCandidates.length > 0 ? Math.min(...startCandidates) : 0;
-  const lastObject = withoutFence.lastIndexOf('}');
-  const lastArray = withoutFence.lastIndexOf(']');
-  const end = Math.max(lastObject, lastArray);
-  const candidate = end >= start ? withoutFence.slice(start, end + 1) : withoutFence;
-
-  return JSON.parse(candidate);
-}
-
 export class OpenAiCompatibleProvider implements LlmProvider {
   readonly providerName = 'openai_compatible';
   readonly modelName: string;
@@ -79,39 +61,23 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     outputSchema: LlmOutputSchema<Output>;
     options?: LlmInvokeOptions;
   }): Promise<Output> {
-    try {
-      const structuredModel = (
-        this.model as unknown as {
-          withStructuredOutput(
-            schema: z.ZodTypeAny,
-            options: { name: string },
-          ): { invoke(input: unknown, options?: unknown): Promise<unknown> };
-        }
-      ).withStructuredOutput(params.outputSchema as z.ZodTypeAny, {
-        name: params.chainName,
-      }) as {
-        invoke(input: unknown, options?: unknown): Promise<unknown>;
-      };
+    const structuredModel = (
+      this.model as unknown as {
+        withStructuredOutput(
+          schema: z.ZodTypeAny,
+          options: { name: string },
+        ): { invoke(input: unknown, options?: unknown): Promise<unknown> };
+      }
+    ).withStructuredOutput(params.outputSchema as z.ZodTypeAny, {
+      name: params.chainName,
+    }) as {
+      invoke(input: unknown, options?: unknown): Promise<unknown>;
+    };
 
-      const output = await structuredModel.invoke(toLangChainMessages(params.messages), {
-        metadata: params.options?.metadata,
-        runName: params.options?.traceId,
-      });
-      return params.outputSchema.parse(output);
-    } catch {
-      const response = await this.invoke(
-        [
-          ...params.messages,
-          {
-            role: 'system',
-            content:
-              'Return only valid JSON matching the expected schema. Do not include markdown fences, comments, or explanation.',
-          },
-        ],
-        params.options,
-      );
-
-      return params.outputSchema.parse(extractJson(response.content));
-    }
+    const output = await structuredModel.invoke(toLangChainMessages(params.messages), {
+      metadata: params.options?.metadata,
+      runName: params.options?.traceId,
+    });
+    return params.outputSchema.parse(output);
   }
 }

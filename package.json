@@ -14,6 +14,7 @@
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
+    "test:e2e:compose": "node scripts/run-e2e-compose.mjs",
     "db:generate": "pnpm --filter @sdd/api db:generate",
     "db:migrate": "pnpm --filter @sdd/api db:migrate"
   },

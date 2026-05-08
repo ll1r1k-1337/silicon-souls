@@ -6,6 +6,7 @@ export function criticSystemPrompt(): string {
     'Do not silently fix issues.',
     'Blocking issues must block approval.',
     'Recommendations must be actionable.',
+    'For nullable fields with no value, return null rather than omitting the field.',
     'Return only structured output matching the schema.',
   ].join('\n');
 }

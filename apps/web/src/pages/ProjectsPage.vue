@@ -34,7 +34,18 @@
           <p>{{ project.description || 'No description yet.' }}</p>
           <div class="card-footer">
             <span>{{ new Date(project.updatedAt).toLocaleString() }}</span>
-            <RouterLink class="link-button" :to="`/projects/${project.id}`">Open</RouterLink>
+            <div class="card-actions">
+              <BaseButton
+                :icon="Trash2"
+                variant="danger"
+                type="button"
+                :disabled="deletingProjectId === project.id"
+                @click="deleteProject(project)"
+              >
+                Delete
+              </BaseButton>
+              <RouterLink class="link-button" :to="`/projects/${project.id}`">Open</RouterLink>
+            </div>
           </div>
         </article>
       </div>
@@ -43,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { Plus, Settings } from 'lucide-vue-next';
+import { Plus, Settings, Trash2 } from 'lucide-vue-next';
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type { ProjectStatus } from '@sdd/domain';
@@ -57,6 +68,7 @@ const ui = useUiStore();
 const router = useRouter();
 const name = ref('');
 const description = ref('');
+const deletingProjectId = ref<string | undefined>();
 
 onMounted(() => store.loadProjects());
 
@@ -66,6 +78,18 @@ async function create() {
     description: description.value || undefined,
   });
   await router.push(`/projects/${project.id}`);
+}
+
+async function deleteProject(project: { id: string; name: string }) {
+  const confirmed = window.confirm(`Delete project "${project.name}"? This cannot be undone.`);
+  if (!confirmed) return;
+
+  deletingProjectId.value = project.id;
+  try {
+    await store.deleteProject(project.id);
+  } finally {
+    deletingProjectId.value = undefined;
+  }
 }
 
 function statusTone(status: ProjectStatus) {

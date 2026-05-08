@@ -19,6 +19,11 @@ const TestLlmSettingsSchema = z
   })
   .optional();
 
+const StructuredOutputSmokeSchema = z.object({
+  ok: z.literal(true),
+  message: z.string().min(1),
+});
+
 interface TestLlmSettingsResponse {
   ok: boolean;
   providerType: 'openai_compatible';
@@ -71,19 +76,25 @@ export class SettingsController {
         timeoutMs: Number(this.config.get<string>('LLM_TIMEOUT_MS') ?? 30000),
         maxRetries: Number(this.config.get<string>('LLM_MAX_RETRIES') ?? 2),
       });
-      await provider.invoke([
-        {
-          role: 'user',
-          content: 'Reply with exactly: ok',
-        },
-      ]);
+      await provider.invokeStructured({
+        chainName: 'settings_structured_output_smoke_test',
+        input: { expected: { ok: true, message: 'structured output works' } },
+        messages: [
+          {
+            role: 'user',
+            content:
+              'Return a structured response with ok=true and a short message saying structured output works.',
+          },
+        ],
+        outputSchema: StructuredOutputSmokeSchema,
+      });
 
       return {
         ok: true,
         providerType: settings.providerType,
         model: settings.model,
         baseUrl: settings.baseUrl,
-        message: 'Connection successful.',
+        message: 'Connection and structured output successful.',
       };
     } catch (error) {
       return {

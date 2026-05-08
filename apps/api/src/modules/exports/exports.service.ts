@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ProductSpecJsonSchema } from '@sdd/schemas';
 import {
   buildBundleFiles,
+  buildLlmPromptExport,
   buildStage1InputBundle,
   renderProductSpecMarkdown,
 } from '@sdd/spec-format';
@@ -42,5 +43,11 @@ export class ExportsService {
     }
 
     return zip.generateAsync({ type: 'nodebuffer' });
+  }
+
+  async exportLlmPrompt(sessionId: string): Promise<string> {
+    const markdown = await this.exportMarkdown(sessionId);
+    const spec = ProductSpecJsonSchema.parse(await this.exportJson(sessionId));
+    return buildLlmPromptExport(markdown, spec);
   }
 }

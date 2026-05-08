@@ -44,6 +44,30 @@ pnpm dev
 pnpm worker
 ```
 
+## E2E in Docker Compose
+
+The e2e suite runs in Docker Compose against real `postgres`, `api`, `worker`, `web`
+services and a real OpenAI-compatible LLM provider. It requires these values:
+
+```bash
+BASE_URL=https://api.openai.com/v1
+API_KEY=...
+MODEL_ID=gpt-5.2
+pnpm test:e2e:compose
+```
+
+For a local OpenAI-compatible provider, point `BASE_URL` at the host from inside
+Docker, for example `http://host.docker.internal:1234/v1`. `API_KEY` can be a
+dummy value when the local endpoint only requires the field to exist.
+
+Ignored env files `.env.e2e` and `.env.e2e.local` are also loaded by the runner.
+You can bootstrap them with:
+
+```bash
+cp .env.e2e.example .env.e2e
+cp .env.e2e.local.example .env.e2e.local
+```
+
 If `OPENAI_API_KEY` is not set, the worker uses a deterministic mock LLM provider so the flow can be tested locally without external API calls.
 
 LLM provider settings can also be configured from the UI. Open the Settings drawer and set an OpenAI-compatible `BASE_URL`, `API_KEY`, and model. Saved UI settings are stored in PostgreSQL and take precedence over `.env` values without requiring an API or worker restart.

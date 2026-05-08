@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS spec_versions (
   version TEXT NOT NULL,
   status TEXT NOT NULL,
   markdown_snapshot TEXT NOT NULL,
+  document_content_snapshot JSONB,
   json_snapshot JSONB NOT NULL,
   change_summary TEXT,
   created_by TEXT NOT NULL,
@@ -84,11 +85,65 @@ CREATE TABLE IF NOT EXISTS spec_documents (
   id TEXT PRIMARY KEY,
   session_id TEXT NOT NULL REFERENCES spec_sessions(id),
   current_version_id TEXT,
+  content_json JSONB,
+  schema_version TEXT NOT NULL DEFAULT 'tiptap.v1',
+  projection_status TEXT NOT NULL DEFAULT 'synced',
   markdown TEXT NOT NULL,
   dirty BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL
 );
+
+ALTER TABLE spec_versions
+  ADD COLUMN IF NOT EXISTS document_content_snapshot JSONB;
+
+ALTER TABLE spec_documents
+  ADD COLUMN IF NOT EXISTS content_json JSONB,
+  ADD COLUMN IF NOT EXISTS schema_version TEXT NOT NULL DEFAULT 'tiptap.v1',
+  ADD COLUMN IF NOT EXISTS projection_status TEXT NOT NULL DEFAULT 'synced';
+
+CREATE TABLE IF NOT EXISTS document_comment_threads (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL REFERENCES spec_sessions(id),
+  document_id TEXT REFERENCES spec_documents(id),
+  version_id TEXT REFERENCES spec_versions(id),
+  status TEXT NOT NULL,
+  anchor JSONB NOT NULL DEFAULT '{}',
+  selected_text TEXT,
+  created_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_comment_threads_session_status
+  ON document_comment_threads (session_id, status);
+
+CREATE TABLE IF NOT EXISTS document_comments (
+  id TEXT PRIMARY KEY,
+  thread_id TEXT NOT NULL REFERENCES document_comment_threads(id),
+  author TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_comments_thread_created
+  ON document_comments (thread_id, created_at);
+
+CREATE TABLE IF NOT EXISTS document_suggestions (
+  id TEXT PRIMARY KEY,
+  thread_id TEXT NOT NULL REFERENCES document_comment_threads(id),
+  status TEXT NOT NULL,
+  replacement_markdown TEXT,
+  replacement_content_json JSONB,
+  rationale TEXT,
+  created_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
+  accepted_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_suggestions_thread_status
+  ON document_suggestions (thread_id, status);
 
 CREATE TABLE IF NOT EXISTS background_jobs (
   id TEXT PRIMARY KEY,

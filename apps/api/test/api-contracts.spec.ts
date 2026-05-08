@@ -47,4 +47,84 @@ describe('API controller contracts', () => {
       ],
     });
   });
+
+  it('accepts rich document content from PATCH /spec-sessions/:sessionId/document', async () => {
+    const directEdit = vi.fn().mockResolvedValue({
+      documentId: 'doc_123',
+      versionId: 'ver_123',
+      status: 'draft',
+    });
+    const controller = new SpecSessionsController({ directEdit } as any);
+    const contentJson = { type: 'doc', content: [{ type: 'paragraph' }] };
+
+    await expect(
+      controller.directEdit('spec_123', {
+        contentJson,
+        markdown: '# Spec',
+        projectionStatus: 'stale',
+        changeSummary: 'Edited rich document',
+      }),
+    ).resolves.toMatchObject({
+      documentId: 'doc_123',
+      versionId: 'ver_123',
+    });
+    expect(directEdit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: 'spec_123',
+        contentJson,
+        projectionStatus: 'stale',
+      }),
+    );
+  });
+
+  it('creates document comment threads and enqueues document assistant jobs', async () => {
+    const createDocumentCommentThread = vi.fn().mockResolvedValue({
+      id: 'dct_123',
+      status: 'open',
+      comments: [],
+      suggestions: [],
+    });
+    const enqueueDocumentAssistant = vi.fn().mockResolvedValue({
+      jobId: 'job_123',
+      type: 'document_assistant',
+      status: 'queued',
+    });
+    const getDocumentCommentThread = vi.fn().mockResolvedValue({
+      id: 'dct_123',
+      sessionId: 'spec_123',
+      status: 'open',
+      anchor: { selectedText: 'section' },
+      selectedText: 'section',
+      comments: [],
+      suggestions: [],
+    });
+    const controller = new SpecSessionsController({
+      createDocumentCommentThread,
+      getDocumentCommentThread,
+      enqueueDocumentAssistant,
+    } as any);
+
+    await expect(
+      controller.createDocumentCommentThread('spec_123', {
+        anchor: { from: 1, to: 8, selectedText: 'section' },
+        selectedText: 'section',
+        content: 'Please check this.',
+      }),
+    ).resolves.toMatchObject({
+      thread: { id: 'dct_123' },
+      job: { jobId: 'job_123' },
+    });
+
+    await expect(
+      controller.documentAssistant('spec_123', {
+        mode: 'comment',
+        prompt: 'Find ambiguity.',
+        threadId: 'dct_123',
+      }),
+    ).resolves.toMatchObject({
+      jobId: 'job_123',
+      type: 'document_assistant',
+      status: 'queued',
+    });
+  });
 });
