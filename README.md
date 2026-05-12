@@ -1,84 +1,48 @@
-# SDD AI Company - Stage 0
+# Silsol
 
-Stage 0 is a local-first spec-driven-development workspace. It turns a raw product idea into a structured, reviewed, versioned and approved product specification that can be exported as a Stage 1 input bundle.
+Silsol - будущий web-сервис для совместного написания документации с помощью LLM.
 
-## Stack
+Идея сервиса: пользователь описывает продукт, проект или техническую задачу обычным языком, а система помогает превратить этот диалог в структурированную, проверенную и версионируемую документацию.
 
-- API: NestJS, TypeScript, Drizzle ORM, PostgreSQL
-- Worker: DB-backed background jobs, no Redis/BullMQ on Stage 0
-- LLM: LangChain.js provider abstraction with OpenAI adapter and mock fallback
-- Web: Vue 3, Vite, Pinia, Vue Router, custom dark-first tokenized UI
-- Shared packages: domain types, Zod schemas, LLM contracts, spec formatting/diff/export helpers
+Главный принцип:
 
-## Local Development
-
-```bash
-docker compose up -d
+```text
+Диалог помогает собрать информацию.
+Документация является источником истины.
 ```
 
-Services:
+## Что должен уметь сервис
 
-- API: `http://localhost:3000/api`
-- Web: `http://localhost:5173`
-- PostgreSQL: `localhost:5432`
+- создавать проекты документации;
+- вести диалог с пользователем для уточнения требований;
+- извлекать из диалога факты, решения, требования, риски и открытые вопросы;
+- генерировать черновики документов;
+- позволять пользователю вручную редактировать текст;
+- проверять документацию на пробелы, противоречия и неподтверждённые предположения;
+- хранить версии документов;
+- экспортировать документацию в Markdown, JSON и архив проекта.
 
-Stop all services:
+## Целевая аудитория
 
-```bash
-docker compose down
-```
+- founders и product owners, которым нужно быстро формализовать идею продукта;
+- разработчики и техлиды, которым нужна техническая документация перед реализацией;
+- аналитики, которые собирают требования и поддерживают спецификации;
+- небольшие команды, которым нужен lightweight-инструмент без тяжёлой enterprise-системы.
 
-Reset local database data:
+## Документация проекта
 
-```bash
-docker compose down -v
-```
+- [Индекс документации](docs/README.md)
+- [Продуктовая спецификация](docs/product.md)
+- [Пользовательские сценарии](docs/user-flows.md)
+- [Архитектура](docs/architecture.md)
+- [Модель данных](docs/data-model.md)
+- [API](docs/api.md)
+- [LLM workflow](docs/llm-workflow.md)
+- [Деплой](docs/deployment.md)
+- [Эксплуатация](docs/operations.md)
+- [Безопасность](docs/security.md)
+- [Roadmap](docs/roadmap.md)
 
-Manual non-container development is still available:
+## Текущий статус
 
-```bash
-pnpm install
-docker compose up -d postgres
-pnpm db:migrate
-pnpm dev
-pnpm worker
-```
-
-## E2E in Docker Compose
-
-The e2e suite runs in Docker Compose against real `postgres`, `api`, `worker`, `web`
-services and a real OpenAI-compatible LLM provider. It requires these values:
-
-```bash
-BASE_URL=https://api.openai.com/v1
-API_KEY=...
-MODEL_ID=gpt-5.2
-pnpm test:e2e:compose
-```
-
-For a local OpenAI-compatible provider, point `BASE_URL` at the host from inside
-Docker, for example `http://host.docker.internal:1234/v1`. `API_KEY` can be a
-dummy value when the local endpoint only requires the field to exist.
-
-Ignored env files `.env.e2e` and `.env.e2e.local` are also loaded by the runner.
-You can bootstrap them with:
-
-```bash
-cp .env.e2e.example .env.e2e
-cp .env.e2e.local.example .env.e2e.local
-```
-
-If `OPENAI_API_KEY` is not set, the worker uses a deterministic mock LLM provider so the flow can be tested locally without external API calls.
-
-LLM provider settings can also be configured from the UI. Open the Settings drawer and set an OpenAI-compatible `BASE_URL`, `API_KEY`, and model. Saved UI settings are stored in PostgreSQL and take precedence over `.env` values without requiring an API or worker restart.
-
-## Main Flow
-
-1. Create a project.
-2. Start a spec session from a raw idea.
-3. Send messages or commands in the conversation panel.
-4. Worker extracts artifacts and asks clarification questions.
-5. Generate a draft Markdown specification.
-6. Run review and resolve blocking issues.
-7. Approve the specification.
-8. Export Markdown, JSON, or Stage 1 bundle.
+Документация описывает целевую версию будущего сервиса и может использоваться как основа для проектирования MVP.
