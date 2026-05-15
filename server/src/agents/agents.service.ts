@@ -1,72 +1,102 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
-import { DRIZZLE, type DrizzleDB } from '../database/database.providers.js';
-import { agents } from '../database/schema.js';
+import {
+  RXDB_DATABASE,
+  type SilSolDatabase,
+} from '../database/rxdb.providers.js';
+import type { AgentDoc } from '../database/schemas/agent.schema.js';
+
+export interface CandidateInput {
+  handle: string;
+  name: string;
+  role: string;
+  personality: string;
+  skills: string[];
+  expectedSalary: string;
+  hrComment: string;
+}
+
+export interface SavedAgent {
+  id: string;
+  handle: string;
+  name: string;
+  role: string;
+  personality: string;
+  status: 'CANDIDATE' | 'HIRED';
+  skills: string[];
+  expectedSalary: string;
+  hrComment: string;
+}
+
+function toPlain(doc: AgentDoc): SavedAgent {
+  return {
+    id: doc.id,
+    handle: doc.handle,
+    name: doc.name,
+    role: doc.role,
+    personality: doc.personality,
+    status: doc.status,
+    skills: doc.skills ?? [],
+    expectedSalary: doc.expectedSalary ?? '',
+    hrComment: doc.hrComment ?? '',
+  };
+}
 
 @Injectable()
 export class AgentsService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(RXDB_DATABASE) private readonly db: SilSolDatabase,
+  ) {}
 
-  async findByHandle(handle: string) {
-    const rows = await this.db
-      .select()
-      .from(agents)
-      .where(eq(agents.handle, handle));
-
-    if (rows.length === 0) return null;
-    const agent = rows[0];
-    return agent.status === 'HIRED' ? agent : null;
+  async findByHandle(handle: string): Promise<SavedAgent | null> {
+    const doc = await this.db.agents
+      .findOne({ selector: { handle } })
+      .exec();
+    if (!doc) return null;
+    const plain = toPlain(doc.toJSON() as AgentDoc);
+    return plain.status === 'HIRED' ? plain : null;
   }
 
-  async getActiveAgents() {
-    return this.db
-      .select({
-        handle: agents.handle,
-        name: agents.name,
-      })
-      .from(agents)
-      .where(eq(agents.status, 'HIRED'));
+  async findById(id: string): Promise<SavedAgent | null> {
+    const doc = await this.db.agents.findOne(id).exec();
+    if (!doc) return null;
+    return toPlain(doc.toJSON() as AgentDoc);
+  }
+
+  async getActiveAgents(): Promise<Array<{ handle: string; name: string }>> {
+    const docs = await this.db.agents
+      .find({ selector: { status: 'HIRED' } })
+      .exec();
+    return docs.map((d) => ({ handle: d.handle, name: d.name }));
   }
 
   async hireCandidate(candidateId: string): Promise<boolean> {
-    const result = await this.db
-      .update(agents)
-      .set({ status: 'HIRED' })
-      .where(eq(agents.id, candidateId))
-      .returning();
-
-    return result.length > 0;
+    const doc = await this.db.agents.findOne(candidateId).exec();
+    if (!doc) return false;
+    await doc.patch({ status: 'HIRED' });
+    return true;
   }
 
   async createCandidates(
-    candidates: Array<{
-      handle: string;
-      name: string;
-      role: string;
-      personality: string;
-      skills: string[];
-      expectedSalary: string;
-      hrComment: string;
-    }>,
-  ) {
-    const inserted = await this.db
-      .insert(agents)
-      .values(
-        candidates.map((c) => ({
-          handle: c.handle,
-          name: c.name,
-          role: c.role,
-          personality: c.personality,
-          status: 'CANDIDATE' as const,
-          metadata: {
-            skills: c.skills,
-            expected_salary: c.expectedSalary,
-            hr_comment: c.hrComment,
-          },
-        })),
-      )
-      .returning();
+    candidates: CandidateInput[],
+  ): Promise<SavedAgent[]> {
+    const now = Date.now();
+    const rows = candidates.map((c) => ({
+      id: crypto.randomUUID(),
+      handle: c.handle,
+      name: c.name,
+      role: c.role,
+      personality: c.personality,
+      status: 'CANDIDATE' as const,
+      skills: c.skills,
+      expectedSalary: c.expectedSalary,
+      hrComment: c.hrComment,
+      createdAt: now,
+    }));
 
-    return inserted;
+    const result = await this.db.agents.bulkInsert(rows);
+    if (result.error.length > 0) {
+      console.error('Some candidates failed to insert:', result.error);
+    }
+    return result.success.map((doc) => toPlain(doc.toJSON() as AgentDoc));
   }
 }

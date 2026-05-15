@@ -1,10 +1,11 @@
 import { ref, computed } from 'vue'
-import type { LlmSettings } from '@/types'
+import type { LlmSettings, ProviderType } from '@/types'
 
 const settings = ref<LlmSettings>({
+  providerType: 'openai',
   baseURL: '',
   apiKey: '',
-  modelName: 'gpt-oss-120',
+  modelName: 'gpt-4o-mini',
 })
 
 const checking = ref(false)
@@ -21,9 +22,10 @@ export function useSettings() {
       configured.value = data.configured
       if (data.settings) {
         settings.value = {
+          providerType: (data.settings.providerType ?? 'openai') as ProviderType,
           baseURL: data.settings.baseURL ?? '',
-          apiKey: '', // API key is masked from server, don't overwrite form
-          modelName: data.settings.modelName ?? 'gpt-oss-120',
+          apiKey: '', // masked from server
+          modelName: data.settings.modelName ?? '',
         }
       }
     } catch (err) {
@@ -60,17 +62,17 @@ export function useSettings() {
         body: JSON.stringify(data),
       })
       checkResult.value = await res.json()
-    } catch (err: any) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
       checkResult.value = {
         success: false,
-        message: `Request failed: ${err.message}`,
+        message: `Request failed: ${msg}`,
       }
     } finally {
       checking.value = false
     }
   }
 
-  // Auto-fetch on first use
   fetchSettings()
 
   return {

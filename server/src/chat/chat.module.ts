@@ -4,9 +4,10 @@ import { ChatService } from './chat.service.js';
 import { CandidateGeneratorService } from './candidate-generator.service.js';
 import { AgentsModule } from '../agents/agents.module.js';
 import { SettingsModule } from '../settings/settings.module.js';
+import { LlmModule } from '../llm/llm.module.js';
 
 @Module({
-  imports: [AgentsModule, SettingsModule],
+  imports: [AgentsModule, SettingsModule, LlmModule],
   controllers: [ChatController],
   providers: [ChatService, CandidateGeneratorService],
 })

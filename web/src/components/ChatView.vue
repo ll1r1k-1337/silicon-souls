@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, nextTick } from 'vue'
 import Timeline from './Timeline.vue'
 import ChatInput from './ChatInput.vue'
 import { useAgents } from '@/composables/useAgents'
-import type { Message, Candidate } from '@/types'
+import type { Message } from '@/types'
 
 const { refresh: refreshAgents } = useAgents()
 
@@ -21,7 +21,6 @@ function scrollToBottom() {
 }
 
 async function handleSend(content: string) {
-  // Add user message
   const userMsg: Message = {
     id: crypto.randomUUID(),
     role: 'user',
@@ -30,10 +29,8 @@ async function handleSend(content: string) {
   messages.value.push(userMsg)
   scrollToBottom()
 
-  // Check if this is an HR hiring intent
   const isHiring = extractHandle(content) === 'hr' && isHiringIntent(content)
 
-  // Create placeholder for assistant response
   const assistantId = crypto.randomUUID()
   const assistantMsg: Message = {
     id: assistantId,
@@ -47,7 +44,6 @@ async function handleSend(content: string) {
   scrollToBottom()
 
   try {
-    // Build messages payload for API
     const apiMessages = messages.value
       .filter((m) => m.role === 'user' || (m.role === 'assistant' && m.content))
       .map((m) => ({
@@ -65,7 +61,6 @@ async function handleSend(content: string) {
       throw new Error(`HTTP ${response.status}`)
     }
 
-    // Read SSE stream using the Vercel AI data stream protocol
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
@@ -76,9 +71,8 @@ async function handleSend(content: string) {
 
       buffer += decoder.decode(value, { stream: true })
 
-      // Process complete lines
       const lines = buffer.split('\n')
-      buffer = lines.pop() ?? '' // Keep incomplete last line in buffer
+      buffer = lines.pop() ?? ''
 
       for (const line of lines) {
         if (!line.trim()) continue
@@ -90,22 +84,21 @@ async function handleSend(content: string) {
         const payload = line.substring(colonIdx + 1)
 
         if (prefix === '0') {
-          // Text chunk
           try {
             const text = JSON.parse(payload) as string
             const idx = messages.value.findIndex((m) => m.id === assistantId)
-            if (idx !== -1) {
+            const current = idx !== -1 ? messages.value[idx] : undefined
+            if (current) {
               messages.value[idx] = {
-                ...messages.value[idx],
-                content: messages.value[idx].content + text,
+                ...current,
+                content: current.content + text,
               }
             }
             scrollToBottom()
           } catch {
-            // Skip invalid JSON
+            // skip
           }
         } else if (prefix === '2') {
-          // Data part (candidates)
           try {
             const dataParts = JSON.parse(payload)
             if (Array.isArray(dataParts)) {
@@ -114,38 +107,43 @@ async function handleSend(content: string) {
                   const idx = messages.value.findIndex(
                     (m) => m.id === assistantId,
                   )
-                  if (idx !== -1) {
+                  const current = idx !== -1 ? messages.value[idx] : undefined
+                  if (current) {
                     messages.value[idx] = {
-                      ...messages.value[idx],
+                      ...current,
                       candidates: part.payload,
                       isGeneratingCandidates: false,
+                      sessionId: part.sessionId,
+                      pendingToolCallId: part.toolCallId,
                     }
                   }
                 }
               }
             }
           } catch {
-            // Skip invalid JSON
+            // skip
           }
         }
-        // prefix 'd' = finish, we don't need to handle it
       }
     }
-  } catch (err: any) {
+  } catch (err) {
     console.error('Chat error:', err)
+    const msg = err instanceof Error ? err.message : 'Failed to get response'
     const idx = messages.value.findIndex((m) => m.id === assistantId)
-    if (idx !== -1) {
+    const current = idx !== -1 ? messages.value[idx] : undefined
+    if (current) {
       messages.value[idx] = {
-        ...messages.value[idx],
-        content: `❌ Error: ${err.message ?? 'Failed to get response'}`,
+        ...current,
+        content: `❌ Error: ${msg}`,
       }
     }
   } finally {
     isLoading.value = false
     const idx = messages.value.findIndex((m) => m.id === assistantId)
-    if (idx !== -1) {
+    const current = idx !== -1 ? messages.value[idx] : undefined
+    if (current) {
       messages.value[idx] = {
-        ...messages.value[idx],
+        ...current,
         isGeneratingCandidates: false,
       }
     }
@@ -168,23 +166,45 @@ function isHiringIntent(content: string): boolean {
 }
 
 async function handleHire(candidateId: string) {
+  const msg = messages.value.find(
+    (m) => m.candidates?.some((c) => c.id === candidateId),
+  )
+  if (!msg) return
+
   try {
-    const res = await fetch('/api/agents/hire', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ candidateId }),
-    })
-    const data = await res.json()
-    if (data.success) {
-      refreshAgents()
-      // Add confirmation message
-      messages.value.push({
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: '✅ Candidate has been hired and added to the active agents!',
-        agentHandle: 'hr',
+    if (msg.sessionId && msg.pendingToolCallId) {
+      // Multi-turn tool-call: server unblocks the LLM which will stream its acknowledgement
+      // through the still-open chat fetch (don't await — fire and forget).
+      fetch('/api/chat/tool-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: msg.sessionId,
+          toolCallId: msg.pendingToolCallId,
+          candidateId,
+        }),
       })
-      scrollToBottom()
+        .then((r) => r.json())
+        .then(() => refreshAgents())
+        .catch((err) => console.error('tool-result POST failed:', err))
+    } else {
+      // Fallback path (Gemini): direct hire endpoint, then append a confirmation message.
+      const res = await fetch('/api/agents/hire', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidateId }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        refreshAgents()
+        messages.value.push({
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: '✅ Candidate has been hired and added to the active agents!',
+          agentHandle: 'hr',
+        })
+        scrollToBottom()
+      }
     }
   } catch (err) {
     console.error('Hire failed:', err)
@@ -194,11 +214,9 @@ async function handleHire(candidateId: string) {
 
 <template>
   <div class="flex flex-col h-full w-full">
-    <!-- Messages -->
     <div ref="timelineRef" class="flex-1 overflow-y-auto">
       <Timeline :messages="messages" @hire="handleHire" />
 
-      <!-- Loading indicator -->
       <div v-if="isLoading" class="px-6 pb-4">
         <div class="flex items-center gap-2 text-[var(--color-text-muted)] text-sm">
           <div class="flex gap-1">
@@ -210,7 +228,6 @@ async function handleHire(candidateId: string) {
       </div>
     </div>
 
-    <!-- Input -->
     <div class="flex-shrink-0 border-t border-[var(--color-glass-border)]">
       <ChatInput @send="handleSend" />
     </div>

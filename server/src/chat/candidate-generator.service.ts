@@ -1,25 +1,54 @@
 import { Injectable } from '@nestjs/common';
-import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';
 import { AgentsService } from '../agents/agents.service.js';
 import type { LlmSettings } from '../settings/settings.service.js';
+import { createProvider } from '../llm/llm-provider.factory.js';
+
+const candidateItemSchema = z.object({
+  handle: z.string(),
+  name: z.string(),
+  role: z.string(),
+  personality: z.string(),
+  skills: z.array(z.string()),
+  expectedSalary: z.string(),
+  hrComment: z.string(),
+});
 
 const candidateSchema = z.object({
-  replyMessage: z.string().describe('A reply message from HR about the candidates being presented'),
-  candidates: z
-    .array(
-      z.object({
-        handle: z.string().describe('A short unique handle for the candidate, lowercase with underscores'),
-        name: z.string().describe('Full name of the candidate'),
-        role: z.string().describe('Job title / role the candidate is being hired for'),
-        personality: z.string().describe('A paragraph describing the candidate personality and work style'),
-        skills: z.array(z.string()).describe('List of 3-5 relevant technical skills'),
-        expectedSalary: z.string().describe('Expected annual salary with currency'),
-        hrComment: z.string().describe('HR assessment comment about the candidate'),
-      }),
-    )
-    .length(3),
+  replyMessage: z.string(),
+  candidates: z.array(candidateItemSchema).length(3),
 });
+
+const PROMPT_TEMPLATE = `You are a professional HR Manager at Silicon Souls. The user has asked you to find or hire someone. Generate exactly 3 realistic, diverse candidates.
+
+Respond ONLY with a single JSON object (no markdown fences, no commentary). The JSON must match this shape exactly:
+
+{
+  "replyMessage": "<a short message presenting the candidates>",
+  "candidates": [
+    {
+      "handle": "<lowercase_underscored_handle>",
+      "name": "<full name>",
+      "role": "<job title>",
+      "personality": "<paragraph describing personality>",
+      "skills": ["<skill1>", "<skill2>", "<skill3>"],
+      "expectedSalary": "<salary with currency>",
+      "hrComment": "<HR assessment>"
+    }
+    // ... exactly 3 entries
+  ]
+}
+
+User request: `;
+
+function extractJson(text: string): string | null {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) return fenced[1].trim();
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) return null;
+  return text.slice(start, end + 1);
+}
 
 @Injectable()
 export class CandidateGeneratorService {
@@ -35,33 +64,33 @@ export class CandidateGeneratorService {
       handle: string;
       name: string;
       role: string;
+      personality: string;
       skills: string[];
       expectedSalary: string;
       hrComment: string;
     }>;
   }> {
-    const llm = new ChatOpenAI({
-      openAIApiKey: llmSettings.apiKey,
-      apiKey: llmSettings.apiKey,
-      modelName: llmSettings.modelName,
-      configuration: llmSettings.baseURL
-        ? { baseURL: llmSettings.baseURL }
-        : undefined,
-    });
+    const provider = createProvider(llmSettings);
 
-    const structuredLlm = llm.withStructuredOutput(candidateSchema);
+    let collected = '';
+    for await (const chunk of provider.stream({
+      messages: [
+        { role: 'system', content: 'You respond only with strict JSON.' },
+        { role: 'user', content: PROMPT_TEMPLATE + userMessage },
+      ],
+      sessionId: 'candidate-generator',
+    })) {
+      if (chunk.type === 'text' && chunk.text) collected += chunk.text;
+    }
 
-    const result = await structuredLlm.invoke([
-      {
-        role: 'system',
-        content: `You are a professional HR Manager at Silicon Souls. When the user asks you to find or hire someone for a role, generate exactly 3 realistic, diverse candidates. Each candidate should have a unique handle (lowercase, underscores allowed), a realistic name, relevant skills, and a thoughtful HR assessment.`,
-      },
-      { role: 'user', content: userMessage },
-    ]);
+    const jsonText = extractJson(collected);
+    if (!jsonText) {
+      throw new Error('LLM did not return parseable JSON');
+    }
+    const parsed = candidateSchema.parse(JSON.parse(jsonText));
 
-    // Save candidates to DB
     const saved = await this.agentsService.createCandidates(
-      result.candidates.map((c) => ({
+      parsed.candidates.map((c) => ({
         handle: c.handle,
         name: c.name,
         role: c.role,
@@ -73,15 +102,16 @@ export class CandidateGeneratorService {
     );
 
     return {
-      replyMessage: result.replyMessage,
+      replyMessage: parsed.replyMessage,
       candidates: saved.map((s, i) => ({
         id: s.id,
         handle: s.handle,
         name: s.name,
         role: s.role,
-        skills: result.candidates[i].skills,
-        expectedSalary: result.candidates[i].expectedSalary,
-        hrComment: result.candidates[i].hrComment,
+        personality: s.personality,
+        skills: parsed.candidates[i].skills,
+        expectedSalary: parsed.candidates[i].expectedSalary,
+        hrComment: parsed.candidates[i].hrComment,
       })),
     };
   }
