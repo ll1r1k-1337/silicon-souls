@@ -1,18 +1,20 @@
 # Silicon Souls
 
-A chat workspace where you talk to AI "agents" by `@handle`. An always-on `@hr`
-agent can recruit on demand: ask it to find a developer, designer, or any other
-role, and it generates three candidate agents via a structured LLM call. Hire
-one and they become addressable in subsequent chats.
+A local-first chat workspace where you talk to AI "agents" by `@handle`. An
+always-on `@hr` agent can recruit on demand: ask it to find a developer,
+designer, or any other role, and it generates three candidate agents via a
+multi-turn LLM tool call. Hire one and they become addressable in subsequent
+chats.
 
-This is the Stage 0 proof-of-concept. The technical contract that the project
-was built to is preserved verbatim in [`docs/Step 0.md`](docs/Step%200.md).
+The Stage 0 PoC contract is preserved verbatim in
+[`docs/Step 0.md`](docs/Step%200.md).
 
 ---
 
 ## Contents
 
 - [Quickstart](#quickstart)
+- [LLM providers](#llm-providers)
 - [Project layout](#project-layout)
 - [How it works](#how-it-works)
 - [Configuration](#configuration)
@@ -23,60 +25,62 @@ was built to is preserved verbatim in [`docs/Step 0.md`](docs/Step%200.md).
 
 ## Quickstart
 
-Requirements: Docker (with Compose v2). Nothing else needs to be installed
-locally — Node, Postgres, and dependencies run inside containers.
+Requirements: Node 22+. No Docker, no database to install — state lives under
+`~/.silicon-souls/` as a JSON file.
 
 ```bash
-docker compose up
+git clone <repo> && cd silicon-souls
+npm run setup          # installs server + web packages
+npm start              # builds web, builds server, starts on :3000
 ```
 
-This brings up three services:
-
-| Service    | URL                          | Notes                                         |
-| ---------- | ---------------------------- | --------------------------------------------- |
-| `postgres` | `localhost:5432`             | `silsol` db, user/pass `postgres/postgres`    |
-| `server`   | `http://localhost:3000`      | NestJS API; runs `seed` then `start:dev`      |
-| `web`      | `http://localhost:5173`      | Vite dev server with HMR                      |
-
-The `server` container, on every start, runs:
-
-```
-npm install && npm run build && npm run seed && npm run start:dev
-```
-
-The `seed` step idempotently inserts the `@hr` agent so the workspace is never
-empty.
-
-Once the web app is up, open <http://localhost:5173>, click the **Settings**
-button in the sidebar, and configure an OpenAI-compatible LLM endpoint (Base
-URL, API key, model name). After saving, you can chat:
+Open <http://localhost:3000> and click **Settings** in the sidebar. Pick a
+provider, enter a model name (and API key if needed), click **Check
+Connection**, then **Save Settings**. After that:
 
 ```
 @hr find me a senior backend engineer
 ```
 
-HR replies with three candidate cards. Click **Hire** on any of them and the
-new agent appears in the sidebar, ready to be `@mention`-ed.
+HR streams a short intro, then three candidate cards appear. Click one — the
+selection is fed back to the LLM as a tool result and it streams a short
+acknowledgement. The hired agent appears in the sidebar, ready to be
+`@mention`-ed.
 
-> The schema is not migrated automatically. On first run the seed will fail if
-> the tables don't exist yet. To create them, see
-> [Database schema](#database-schema) below.
-
-### Database schema
-
-There is no Drizzle migrations folder; the schema in
-`server/src/database/schema.ts` is the source of truth. Push it to the running
-Postgres:
+### Development (HMR)
 
 ```bash
-docker compose exec server npx drizzle-kit push
+# terminal 1
+npm run dev:server     # Nest --watch on :3000
+# terminal 2
+npm run dev:web        # Vite on :5173, proxies /api → :3000
 ```
 
-Or, outside Docker (with `DATABASE_URL` set in `server/.env`):
+---
+
+## LLM providers
+
+The Settings panel lets you pick one of four providers:
+
+| Provider                     | Tool calling | How                                                                 |
+| ---------------------------- | ------------ | ------------------------------------------------------------------- |
+| **OpenAI-compatible (HTTP)** | ✅           | `@langchain/openai` `ChatOpenAI` + `bindTools()`                    |
+| **Claude Code CLI**          | ✅           | Spawns `claude -p … --mcp-config … --output-format stream-json`     |
+| **OpenAI Codex CLI**         | ✅           | Spawns `codex exec --json --config 'mcp_servers.siliconsouls.…'`    |
+| **Gemini CLI**               | ⚠️ fallback  | Spawns `gemini -p …`; HR uses a prompted-JSON path (no native tool) |
+
+CLI providers run on the **host**, not in a container. Install whichever you
+want to use:
 
 ```bash
-cd server && npx drizzle-kit push
+npm i -g @anthropic-ai/claude-code   # claude
+npm i -g @openai/codex               # codex
+npm i -g @google/gemini-cli          # gemini
 ```
+
+API keys are optional for CLI providers when you're already logged in via the
+CLI's own auth flow (e.g. `claude login`). The "Check Connection" button
+verifies the binary is on `PATH` and produces a friendly install hint otherwise.
 
 ---
 
@@ -84,30 +88,31 @@ cd server && npx drizzle-kit push
 
 ```
 .
-|-- docker-compose.yml      postgres + server + web
-|-- server/                 NestJS 11 (ESM) backend
-|   |-- src/
-|   |   |-- main.ts                 bootstrap, CORS, port
-|   |   |-- app.module.ts           wires DB + Settings + Agents + Chat
-|   |   |-- database/               drizzle client, schema, seed
-|   |   |-- settings/               GET/PUT /api/settings + POST /check
-|   |   |-- agents/                 GET /active, POST /hire
-|   |   `-- chat/                   POST /api/chat (streaming)
-|   `-- drizzle.config.ts
-|-- web/                    Vue 3 + Vite + Tailwind v4 frontend
+|-- package.json           root scripts (setup / build / start / dev:*)
+|-- server/                NestJS 11 (ESM) backend
 |   `-- src/
-|       |-- App.vue                 sidebar + main pane
-|       |-- components/             ChatView, ChatInput, Timeline,
-|       |                           MessageBubble, CandidateCard,
-|       |                           SettingsPanel
-|       |-- composables/            useAgents, useSettings, mockData
+|       |-- main.ts                  bootstrap + port
+|       |-- app.module.ts            wires Database + LLM + Settings + Agents + Chat
+|       |-- database/                RxDB module + schemas + JSON snapshot
+|       |-- settings/                GET/PUT /api/settings + POST /check
+|       |-- agents/                  GET /active, POST /hire
+|       |-- chat/                    POST /api/chat (streaming), session store, /tool-result
+|       `-- llm/                     provider interface + 4 implementations,
+|                                    internal MCP server, present_candidates tool
+|-- web/                   Vue 3 + Vite + Tailwind v4 frontend
+|   `-- src/
+|       |-- App.vue                  sidebar + main pane
+|       |-- components/              ChatView, ChatInput, Timeline,
+|       |                            MessageBubble, CandidateCard,
+|       |                            SettingsPanel
+|       |-- composables/             useAgents, useSettings, mockData
 |       `-- types.ts
 |-- docs/
-|   |-- Step 0.md                   original technical contract
-|   |-- architecture.md             deep dive: backend, frontend, wire protocol
-|   |-- api.md                      REST endpoint reference
-|   `-- review.md                   code review and known issues
-`-- CLAUDE.md                       guidance file for Claude Code sessions
+|   |-- Step 0.md                    original technical contract
+|   |-- architecture.md
+|   |-- api.md
+|   `-- review.md
+`-- CLAUDE.md                        guidance for Claude Code sessions
 ```
 
 ---
@@ -117,31 +122,32 @@ cd server && npx drizzle-kit push
 A user message goes through this pipeline on the server:
 
 ```
-POST /api/chat  (Vercel-AI-SDK-style data stream)
+POST /api/chat
   |
   v
 ChatService.handleChat
-  1. fetch LLM settings (from system_settings table); if missing, prompt to configure
-  2. take the last message; require role === 'user'
-  3. regex /@([a-zA-Z0-9_]+)/ -> handle (or error)
-  4. AgentsService.findByHandle -> only returns HIRED agents
-  5. if handle === 'hr' && isHiringIntent(content)
-        -> CandidateGeneratorService.generate
-           - structured output (zod schema), exactly 3 candidates
-           - persist with status='CANDIDATE'
-           - stream the replyMessage word-by-word
-           - append data part: { type: 'CANDIDATES_LIST', payload: [...] }
-     else
-        -> ChatOpenAI.stream() with personality as the system message
+  1. create a session (UUID + per-session MCP token) in ChatSessionStore
+  2. fetch LLM settings; if missing, prompt to configure
+  3. require role === 'user' on the last message
+  4. regex /@([a-zA-Z0-9_]+)/ → handle (or error)
+  5. AgentsService.findByHandle → only returns HIRED agents
+  6. if handle === 'hr' && isHiringIntent(content):
+       - Gemini: prompted-JSON fallback via CandidateGeneratorService
+       - else:   provider.stream({ tools: [present_candidates], sessionId })
+                 → tool handler persists candidates, streams CANDIDATES_LIST,
+                   blocks on a Promise resolved by POST /api/chat/tool-result
+                 → LLM resumes with the user's selection as tool result
+     else:
+       - provider.stream(...) with personality as the system message
 ```
 
 The response is the Vercel AI SDK v1 data-stream protocol (hand-rolled):
 line-prefixed records on a `text/event-stream` body — `0:` for text chunks,
-`2:` for data parts, `d:` for finish. The Vue client parses this format
-manually in `ChatView.vue`.
+`2:` for data parts, `d:` for finish. The Vue client parses this manually in
+`ChatView.vue`.
 
-For the full pipeline (including wire format details, candidate schema, and
-frontend state model), see [`docs/architecture.md`](docs/architecture.md).
+For the full pipeline (including the multi-turn tool flow and MCP plumbing),
+see [`CLAUDE.md`](CLAUDE.md).
 
 ---
 
@@ -149,66 +155,50 @@ frontend state model), see [`docs/architecture.md`](docs/architecture.md).
 
 ### Environment variables
 
-| Variable       | Where         | Default                                                   | Notes                              |
-| -------------- | ------------- | --------------------------------------------------------- | ---------------------------------- |
-| `DATABASE_URL` | server        | `postgresql://postgres:postgres@postgres:5432/silsol`     | Required. Set by Compose.          |
-| `PORT`         | server        | `3000`                                                    | Optional override.                 |
-| `API_TARGET`   | web (Vite)    | `http://localhost:3000`                                   | Proxy target for `/api/*`.         |
+| Variable              | Default                                    | Notes                          |
+| --------------------- | ------------------------------------------ | ------------------------------ |
+| `PORT`                | `3000`                                     | Server HTTP port.              |
+| `SILICON_SOULS_HOME`  | `~/.silicon-souls`                         | Data directory (RxDB dump).    |
 
-LLM credentials (base URL, API key, model name) are **not** environment
-variables. They are stored in the `system_settings` table and configured at
-runtime through the Settings panel. This lets the PoC run anywhere with an
-OpenAI-compatible endpoint (OpenAI, Azure, Ollama via `litellm`, local
-vLLM/text-generation-inference, etc.).
-
-### CORS
-
-`server/src/main.ts` hardcodes the allowed origins to `http://localhost:5173`
-and `http://localhost:5174`. Update that list to host the web app elsewhere.
+LLM credentials (provider type, base URL, API key, model name) are **not**
+environment variables. They are stored in the local RxDB `systemSettings`
+collection and configured at runtime through the Settings panel.
 
 ---
 
 ## Per-package commands
 
-There is no root `package.json` — run commands from inside each package.
+The root `package.json` proxies most operations, but you can drop into each
+package for more granular control.
 
 ### server/
 
 ```bash
 npm run start:dev      # watch-mode Nest
 npm run build          # compile to dist/
-npm run seed           # build first; inserts @hr (idempotent)
 npm run lint           # ESLint --fix
 npm test               # Jest unit (*.spec.ts under src/)
 npm run test:e2e       # Jest with test/jest-e2e.json
-npx jest path/to/file.spec.ts          # single file
-npx jest -t "test name"                # single test by name
 ```
 
 ### web/
 
 ```bash
 npm run dev            # Vite dev server
-npm run build          # parallel: type-check + build-only
+npm run build          # type-check + build-only
 npm run type-check     # vue-tsc --build
 npm run lint           # oxlint --fix, then eslint --fix
 ```
-
-Always run `npm run lint` (the composite); the sub-tasks (`lint:oxlint`,
-`lint:eslint`) are not designed to be invoked individually.
 
 ---
 
 ## Further reading
 
-- **[`docs/architecture.md`](docs/architecture.md)** — backend modules, the
-  chat routing algorithm, the candidate-generation flow, the data-stream wire
-  protocol, the frontend state model.
-- **[`docs/api.md`](docs/api.md)** — REST endpoint reference with request and
-  response shapes.
-- **[`docs/review.md`](docs/review.md)** — code review: dead code, conformance
-  to the Step 0 spec, known limitations, recommended follow-ups.
-- **[`docs/Step 0.md`](docs/Step%200.md)** — the original technical contract
-  the codebase was built against.
 - **[`CLAUDE.md`](CLAUDE.md)** — instructions for Claude Code sessions working
-  on this repo (conventions, gotchas, ESM `.js` imports, etc.).
+  on this repo: architecture, wire protocol, MCP plumbing, ESM `.js` imports,
+  conventions.
+- **[`docs/Step 0.md`](docs/Step%200.md)** — the original technical contract.
+- **[`docs/architecture.md`](docs/architecture.md)**,
+  **[`docs/api.md`](docs/api.md)**,
+  **[`docs/review.md`](docs/review.md)** — pre-pivot reference (parts now
+  superseded by the local-first rewrite; updated material is in `CLAUDE.md`).

@@ -11,6 +11,8 @@ export interface Message {
   agentName?: string
   candidates?: Candidate[]
   isGeneratingCandidates?: boolean
+  sessionId?: string
+  pendingToolCallId?: string
 }
 
 export interface Candidate {
@@ -24,7 +26,10 @@ export interface Candidate {
   hrComment: string
 }
 
+export type ProviderType = 'openai' | 'claude-cli' | 'codex-cli' | 'gemini-cli'
+
 export interface LlmSettings {
+  providerType: ProviderType
   baseURL: string
   apiKey: string
   modelName: string

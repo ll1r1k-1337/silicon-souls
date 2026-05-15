@@ -37,7 +37,7 @@ function handleInput() {
 
   if (match) {
     showMentions.value = true
-    mentionQuery.value = match[1]
+    mentionQuery.value = match[1] ?? ''
     mentionStartIndex.value = beforeCursor.lastIndexOf('@')
     selectedIndex.value = 0
   } else {
@@ -85,7 +85,8 @@ function handleKeydown(e: KeyboardEvent) {
     }
     if (e.key === 'Enter') {
       e.preventDefault()
-      selectAgent(filteredAgents.value[selectedIndex.value])
+      const picked = filteredAgents.value[selectedIndex.value]
+      if (picked) selectAgent(picked)
       return
     }
     if (e.key === 'Escape') {

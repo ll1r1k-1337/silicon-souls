@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import {
   TransitionRoot,
   TransitionChild,
@@ -8,8 +8,9 @@ import {
   DialogTitle,
 } from '@headlessui/vue'
 import { useSettings } from '@/composables/useSettings'
+import type { ProviderType } from '@/types'
 
-const props = defineProps<{
+defineProps<{
   open: boolean
 }>()
 
@@ -19,11 +20,73 @@ const emit = defineEmits<{
 
 const { settings, checking, checkResult, saveSettings, checkConnection } = useSettings()
 
+interface ProviderOption {
+  id: ProviderType
+  label: string
+  modelPlaceholder: string
+  needsBaseUrl: boolean
+  keyHint: string
+  description: string
+}
+
+const providers: ProviderOption[] = [
+  {
+    id: 'openai',
+    label: 'OpenAI-compatible (HTTP)',
+    modelPlaceholder: 'gpt-4o-mini',
+    needsBaseUrl: true,
+    keyHint: 'sk-...',
+    description: 'Any OpenAI-compatible HTTP API (OpenAI, Ollama, vLLM, etc.)',
+  },
+  {
+    id: 'claude-cli',
+    label: 'Claude Code CLI',
+    modelPlaceholder: 'claude-sonnet-4-5',
+    needsBaseUrl: false,
+    keyHint: 'optional if logged in via `claude login`',
+    description: 'Spawns the `claude` CLI on your host. Install: npm i -g @anthropic-ai/claude-code',
+  },
+  {
+    id: 'codex-cli',
+    label: 'OpenAI Codex CLI',
+    modelPlaceholder: 'gpt-5-codex',
+    needsBaseUrl: false,
+    keyHint: 'optional if logged in via `codex login`',
+    description: 'Spawns the `codex` CLI on your host. Install: npm i -g @openai/codex',
+  },
+  {
+    id: 'gemini-cli',
+    label: 'Gemini CLI',
+    modelPlaceholder: 'gemini-2.5-pro',
+    needsBaseUrl: false,
+    keyHint: 'optional if logged in via `gemini`',
+    description: 'Spawns the `gemini` CLI on your host. HR hiring uses a JSON fallback (no native tool-calling).',
+  },
+]
+
 const form = reactive({
+  providerType: settings.value.providerType,
   baseURL: settings.value.baseURL,
   apiKey: settings.value.apiKey,
   modelName: settings.value.modelName,
 })
+
+watch(
+  () => settings.value,
+  (s) => {
+    form.providerType = s.providerType
+    form.baseURL = s.baseURL
+    form.modelName = s.modelName
+    if (s.apiKey) form.apiKey = s.apiKey
+  },
+  { deep: true },
+)
+
+const currentProvider = computed<ProviderOption>(
+  () =>
+    providers.find((p) => p.id === form.providerType) ??
+    (providers[0] as ProviderOption),
+)
 
 const saving = ref(false)
 const saved = ref(false)
@@ -34,9 +97,7 @@ async function handleSave() {
   await saveSettings({ ...form })
   saving.value = false
   saved.value = true
-  setTimeout(() => {
-    saved.value = false
-  }, 2000)
+  setTimeout(() => { saved.value = false }, 2000)
 }
 
 async function handleCheck() {
@@ -51,7 +112,6 @@ function handleClose() {
 <template>
   <TransitionRoot :show="open" as="template">
     <Dialog @close="handleClose" class="relative z-50">
-      <!-- Backdrop -->
       <TransitionChild
         as="template"
         enter="ease-out duration-300"
@@ -64,7 +124,6 @@ function handleClose() {
         <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" />
       </TransitionChild>
 
-      <!-- Panel -->
       <div class="fixed inset-0 flex items-center justify-center p-4">
         <TransitionChild
           as="template"
@@ -76,7 +135,6 @@ function handleClose() {
           leave-to="opacity-0 scale-95 translate-y-4"
         >
           <DialogPanel class="glass rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl shadow-black/30">
-            <!-- Header -->
             <div class="flex items-center justify-between px-6 py-4 border-b border-[var(--color-glass-border)]">
               <DialogTitle class="text-lg font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
                 <svg class="w-5 h-5 text-[var(--color-accent-cyan)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -95,10 +153,32 @@ function handleClose() {
               </button>
             </div>
 
-            <!-- Form -->
             <div class="p-6 space-y-5">
-              <!-- Base URL -->
+              <!-- Provider Type -->
               <div class="space-y-2">
+                <label class="block text-sm font-medium text-[var(--color-text-secondary)]">
+                  Provider
+                </label>
+                <select
+                  v-model="form.providerType"
+                  class="w-full px-4 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent-cyan)]/40 transition-colors cursor-pointer"
+                >
+                  <option
+                    v-for="p in providers"
+                    :key="p.id"
+                    :value="p.id"
+                    class="bg-[var(--color-surface-700)]"
+                  >
+                    {{ p.label }}
+                  </option>
+                </select>
+                <p class="text-xs text-[var(--color-text-muted)] pt-1">
+                  {{ currentProvider.description }}
+                </p>
+              </div>
+
+              <!-- Base URL (OpenAI only) -->
+              <div v-if="currentProvider.needsBaseUrl" class="space-y-2">
                 <label class="block text-sm font-medium text-[var(--color-text-secondary)]">
                   Base URL
                   <span class="text-[var(--color-text-muted)] font-normal">(optional)</span>
@@ -115,11 +195,12 @@ function handleClose() {
               <div class="space-y-2">
                 <label class="block text-sm font-medium text-[var(--color-text-secondary)]">
                   API Key
+                  <span v-if="currentProvider.id !== 'openai'" class="text-[var(--color-text-muted)] font-normal">(optional)</span>
                 </label>
                 <input
                   v-model="form.apiKey"
                   type="password"
-                  placeholder="sk-..."
+                  :placeholder="currentProvider.keyHint"
                   class="w-full px-4 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] outline-none focus:border-[var(--color-accent-cyan)]/40 transition-colors font-mono"
                 />
               </div>
@@ -132,12 +213,11 @@ function handleClose() {
                 <input
                   v-model="form.modelName"
                   type="text"
-                  placeholder="gpt-oss-120"
+                  :placeholder="currentProvider.modelPlaceholder"
                   class="w-full px-4 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] outline-none focus:border-[var(--color-accent-cyan)]/40 transition-colors"
                 />
               </div>
 
-              <!-- Check Connection Result -->
               <Transition
                 enter-active-class="transition duration-200 ease-out"
                 enter-from-class="opacity-0 -translate-y-1"
@@ -166,12 +246,10 @@ function handleClose() {
               </Transition>
             </div>
 
-            <!-- Footer -->
             <div class="flex items-center gap-3 px-6 py-4 border-t border-[var(--color-glass-border)]">
-              <!-- Check Connection Button -->
               <button
                 @click="handleCheck"
-                :disabled="checking || !form.apiKey"
+                :disabled="checking || !form.modelName"
                 class="px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border border-[var(--color-accent-purple)]/30 text-[var(--color-accent-purple)] hover:bg-[var(--color-accent-purple)]/10 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 <span v-if="checking" class="flex items-center gap-2">
@@ -186,10 +264,9 @@ function handleClose() {
 
               <div class="flex-1" />
 
-              <!-- Save Button -->
               <button
                 @click="handleSave"
-                :disabled="saving || !form.apiKey || !form.modelName"
+                :disabled="saving || !form.modelName"
                 class="px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 bg-gradient-to-r from-[var(--color-accent-cyan)] to-[var(--color-accent-teal)] text-[var(--color-surface-900)] hover:shadow-lg hover:shadow-[var(--color-accent-cyan)]/25 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 <span v-if="saved">✓ Saved</span>

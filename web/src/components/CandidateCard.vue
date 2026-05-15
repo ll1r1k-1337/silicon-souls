@@ -13,13 +13,16 @@ const emit = defineEmits<{
 const hiring = ref(false)
 const hired = ref(false)
 
-async function handleHire() {
+function handleHire() {
+  if (hiring.value || hired.value) return
   hiring.value = true
-  // TODO: Replace with real API call: POST /api/agents/hire
-  await new Promise((r) => setTimeout(r, 800))
-  hired.value = true
-  hiring.value = false
   emit('hire', props.candidate.id)
+  // Optimistic UI: parent owns the HTTP call. Flip to "hired" after a beat
+  // so the card stops responding to clicks while the server continues the stream.
+  setTimeout(() => {
+    hired.value = true
+    hiring.value = false
+  }, 400)
 }
 </script>
 

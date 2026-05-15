@@ -1,68 +1,57 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
-import { DRIZZLE, type DrizzleDB } from '../database/database.providers.js';
-import { systemSettings } from '../database/schema.js';
-import { ChatOpenAI } from '@langchain/openai';
+import {
+  RXDB_DATABASE,
+  type SilSolDatabase,
+} from '../database/rxdb.providers.js';
+import type { ProviderType } from '../database/schemas/system-settings.schema.js';
+
+export type { ProviderType } from '../database/schemas/system-settings.schema.js';
 
 export interface LlmSettings {
+  providerType: ProviderType;
   baseURL?: string;
-  apiKey: string;
+  apiKey?: string;
   modelName: string;
 }
 
 @Injectable()
 export class SettingsService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(RXDB_DATABASE) private readonly db: SilSolDatabase,
+  ) {}
 
   async getSettings(): Promise<LlmSettings | null> {
-    const rows = await this.db
-      .select()
-      .from(systemSettings)
-      .where(eq(systemSettings.key, 'llm'));
-
-    if (rows.length === 0 || !rows[0].value) return null;
-    return rows[0].value as LlmSettings;
+    const doc = await this.db.systemSettings.findOne('llm').exec();
+    if (!doc) return null;
+    const v = doc.toJSON();
+    return {
+      providerType: (v.providerType ?? 'openai') as ProviderType,
+      baseURL: v.baseURL || undefined,
+      apiKey: v.apiKey || undefined,
+      modelName: v.modelName,
+    };
   }
 
   async updateSettings(data: LlmSettings): Promise<void> {
-    const existing = await this.db
-      .select()
-      .from(systemSettings)
-      .where(eq(systemSettings.key, 'llm'));
-
-    if (existing.length === 0) {
-      await this.db.insert(systemSettings).values({
-        key: 'llm',
-        value: data,
-      });
-    } else {
-      await this.db
-        .update(systemSettings)
-        .set({ value: data })
-        .where(eq(systemSettings.key, 'llm'));
-    }
+    await this.db.systemSettings.upsert({
+      key: 'llm',
+      providerType: data.providerType ?? 'openai',
+      baseURL: data.baseURL ?? '',
+      apiKey: data.apiKey ?? '',
+      modelName: data.modelName,
+    });
   }
 
   async checkConnection(
     data: LlmSettings,
   ): Promise<{ success: boolean; message: string }> {
+    const { createProvider } = await import('../llm/llm-provider.factory.js');
     try {
-      const llm = new ChatOpenAI({
-        openAIApiKey: data.apiKey,
-        apiKey: data.apiKey,
-        modelName: data.modelName,
-        configuration: data.baseURL ? { baseURL: data.baseURL } : undefined,
-        maxTokens: 5,
-      });
-
-      await llm.invoke('Say "ok"');
-
-      return { success: true, message: 'Connection successful! Model is reachable.' };
-    } catch (err: any) {
-      return {
-        success: false,
-        message: `Connection failed: ${err.message ?? 'Unknown error'}`,
-      };
+      const provider = createProvider(data);
+      return await provider.checkConnection();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, message: `Connection failed: ${msg}` };
     }
   }
 }

@@ -1,6 +1,12 @@
 import { Controller, Get, Put, Post, Body } from '@nestjs/common';
 import { SettingsService, type LlmSettings } from './settings.service.js';
 
+function maskKey(key: string | undefined): string {
+  if (!key) return '';
+  if (key.length <= 10) return '••••';
+  return `${key.slice(0, 6)}...${key.slice(-4)}`;
+}
+
 @Controller('api/settings')
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
@@ -11,14 +17,13 @@ export class SettingsController {
     if (!settings) {
       return { configured: false, settings: null };
     }
-    // Mask API key for security
     return {
       configured: true,
       settings: {
-        ...settings,
-        apiKey: settings.apiKey
-          ? `${settings.apiKey.slice(0, 6)}...${settings.apiKey.slice(-4)}`
-          : '',
+        providerType: settings.providerType,
+        baseURL: settings.baseURL ?? '',
+        modelName: settings.modelName,
+        apiKey: maskKey(settings.apiKey),
       },
     };
   }
