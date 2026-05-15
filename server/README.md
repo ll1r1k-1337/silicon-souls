@@ -1,98 +1,92 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# server — Silicon Souls backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS 11 (ESM) API for the Silicon Souls chat workspace.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+For project-level docs see the [root README](../README.md). For the chat
+routing pipeline and module breakdown see
+[`docs/architecture.md`](../docs/architecture.md).
 
-## Description
+## Quickstart
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+Inside Docker (recommended; from repo root):
 
 ```bash
-$ npm install
+docker compose up
 ```
 
-## Compile and run the project
+Outside Docker:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+cd server
+echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/silsol" > .env
+npm install
+npx drizzle-kit push       # one-time schema sync
+npm run build && npm run seed
+npm run start:dev
 ```
 
-## Run tests
+The server listens on `http://localhost:3000`. CORS is whitelisted to the
+Vite dev server (`:5173` / `:5174`); see `src/main.ts`.
+
+## Scripts
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run start:dev          # watch-mode Nest
+npm run build              # compile to dist/
+npm run seed               # idempotently insert @hr (requires build first)
+npm run lint               # ESLint --fix
+npm test                   # Jest unit tests (*.spec.ts under src/)
+npm run test:e2e           # Jest with test/jest-e2e.json
+npx jest path/to/file.spec.ts          # single file
+npx jest -t "test name"                # single test by name
 ```
 
-## Deployment
+## Configuration
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+| Variable       | Default                                                | Required |
+| -------------- | ------------------------------------------------------ | -------- |
+| `DATABASE_URL` | `postgresql://postgres:postgres@postgres:5432/silsol`  | yes      |
+| `PORT`         | `3000`                                                 | no       |
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+LLM credentials (Base URL, API key, model name) are **not** environment
+variables — they are stored in the `system_settings` table and configured at
+runtime through the web app's Settings panel.
+
+## Database
+
+The schema in `src/database/schema.ts` is the source of truth. There are no
+generated migrations; push it to Postgres with:
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npx drizzle-kit push
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+(Inside Docker: `docker compose exec server npx drizzle-kit push`.)
 
-## Resources
+`src/database/seed.ts` inserts the `@hr` agent with `status: 'HIRED'`. It is
+idempotent and runs automatically on every container start.
 
-Check out a few resources that may come in handy when working with NestJS:
+## ESM gotcha
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+`tsconfig.json` uses `"module": "nodenext"`. All relative imports **must**
+include the `.js` extension even in `.ts` source:
 
-## Support
+```ts
+import { AppModule } from './app.module.js';        // correct
+import { AppModule } from './app.module';           // breaks at runtime
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## API surface
 
-## Stay in touch
+See [`docs/api.md`](../docs/api.md) for the full endpoint reference.
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```
+GET    /api/agents/active           list hired agents
+POST   /api/agents/hire             flip a candidate to HIRED
 
-## License
+GET    /api/settings                read LLM settings (apiKey masked)
+PUT    /api/settings                upsert LLM settings
+POST   /api/settings/check          probe credentials (no persistence)
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+POST   /api/chat                    streaming chat (Vercel AI SDK v1 data stream)
+```
