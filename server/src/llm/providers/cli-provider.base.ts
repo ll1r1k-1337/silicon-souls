@@ -33,13 +33,26 @@ const MAX_ARG_LOG_CHARS = 400;
 
 const IS_WINDOWS = process.platform === 'win32';
 
+// Redact known-sensitive values from log lines. Note: this does NOT redact
+// arbitrary user prompt content that providers append as a positional argv
+// slot — debug logging of argv on a chat path will still expose chat text,
+// so debug-level logging in production should be considered a PII risk.
+function redactSensitive(s: string): string {
+  return s
+    .replace(/SILSOL_TOKEN="[^"]*"/g, 'SILSOL_TOKEN="<redacted>"')
+    .replace(/SILSOL_TOKEN=[^,}\s]+/g, 'SILSOL_TOKEN=<redacted>')
+    .replace(/SILSOL_SESSION_ID="[^"]*"/g, 'SILSOL_SESSION_ID="<redacted>"')
+    .replace(/SILSOL_SESSION_ID=[^,}\s]+/g, 'SILSOL_SESSION_ID=<redacted>');
+}
+
 function formatArgsForLog(args: string[]): string {
   return args
     .map((a) => {
+      const redacted = redactSensitive(a);
       const truncated =
-        a.length > MAX_ARG_LOG_CHARS
-          ? `${a.slice(0, MAX_ARG_LOG_CHARS)}…(+${a.length - MAX_ARG_LOG_CHARS} chars)`
-          : a;
+        redacted.length > MAX_ARG_LOG_CHARS
+          ? `${redacted.slice(0, MAX_ARG_LOG_CHARS)}…(+${redacted.length - MAX_ARG_LOG_CHARS} chars)`
+          : redacted;
       return JSON.stringify(truncated);
     })
     .join(' ');
@@ -194,7 +207,7 @@ export abstract class CliProviderBase implements LlmProvider {
         spawnArgs = [];
         spawnShell = true;
         this.logger.debug(
-          `windows shell command: ${spawnTarget.slice(0, 600)}`,
+          `windows shell command: ${redactSensitive(spawnTarget).slice(0, 600)}`,
         );
       } else if (resolved) {
         spawnTarget = resolved;

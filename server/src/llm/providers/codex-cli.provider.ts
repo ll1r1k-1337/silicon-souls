@@ -49,8 +49,9 @@ export class CodexCliProvider extends CliProviderBase {
     })();
 
     const timeoutMs = 45_000;
+    let timeoutTimer: NodeJS.Timeout | undefined;
     const timeout = new Promise<CliExitInfo>((resolve) => {
-      setTimeout(() => {
+      timeoutTimer = setTimeout(() => {
         if (!handle.child.killed) handle.child.kill('SIGTERM');
         // Escalate to SIGKILL if codex ignores SIGTERM, matching the abort
         // path in runChild. Without this the child could outlive the check.
@@ -66,6 +67,10 @@ export class CodexCliProvider extends CliProviderBase {
     });
 
     const exit = await Promise.race([handle.exited, timeout]);
+    // If exited won the race, cancel the pending timeout so we don't
+    // SIGTERM (and SIGKILL 2s later) a possibly-recycled PID. If the
+    // timeout fired first, clearTimeout is a harmless no-op here.
+    if (timeoutTimer) clearTimeout(timeoutTimer);
     const tail = handle.stderrTail();
     const tailSummary =
       tail.length > 0 ? ` Last stderr: ${tail.slice(-5).join(' | ')}` : '';
