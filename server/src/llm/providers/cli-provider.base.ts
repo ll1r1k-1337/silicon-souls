@@ -33,27 +33,23 @@ const MAX_ARG_LOG_CHARS = 400;
 
 const IS_WINDOWS = process.platform === 'win32';
 
-// Redact known-sensitive values from log lines. Note: this does NOT redact
-// arbitrary user prompt content that providers append as a positional argv
-// slot — debug logging of argv on a chat path will still expose chat text,
-// so debug-level logging in production should be considered a PII risk.
-function redactSensitive(s: string): string {
-  return s
-    .replace(/SILSOL_TOKEN="[^"]*"/g, 'SILSOL_TOKEN="<redacted>"')
-    .replace(/SILSOL_TOKEN=[^,}\s]+/g, 'SILSOL_TOKEN=<redacted>')
-    .replace(/SILSOL_SESSION_ID="[^"]*"/g, 'SILSOL_SESSION_ID="<redacted>"')
-    .replace(/SILSOL_SESSION_ID=[^,}\s]+/g, 'SILSOL_SESSION_ID=<redacted>');
-}
+// Only flag-form args (`-x`, `--flag`) are CLI structure and safe to log
+// verbatim. Anything else is a positional argv slot — prompt text, config
+// payload, separately-passed flag value — and may carry user content or
+// secrets, so it is replaced with a length-only marker. Without this,
+// debug-level argv logging on a chat path leaks every user message into
+// application logs even after `SILSOL_TOKEN` redaction.
+export const FLAG_ARG_PATTERN = /^--?[a-zA-Z][a-zA-Z0-9-]*$/;
 
-function formatArgsForLog(args: string[]): string {
+export function formatArgsForLog(args: string[]): string {
   return args
     .map((a) => {
-      const redacted = redactSensitive(a);
-      const truncated =
-        redacted.length > MAX_ARG_LOG_CHARS
-          ? `${redacted.slice(0, MAX_ARG_LOG_CHARS)}…(+${redacted.length - MAX_ARG_LOG_CHARS} chars)`
-          : redacted;
-      return JSON.stringify(truncated);
+      if (FLAG_ARG_PATTERN.test(a)) {
+        return a.length > MAX_ARG_LOG_CHARS
+          ? `${a.slice(0, MAX_ARG_LOG_CHARS)}…`
+          : a;
+      }
+      return `<arg:len=${a.length}>`;
     })
     .join(' ');
 }
@@ -206,9 +202,10 @@ export abstract class CliProviderBase implements LlmProvider {
         spawnTarget = [resolved, ...args].map(escapeWindowsArg).join(' ');
         spawnArgs = [];
         spawnShell = true;
-        this.logger.debug(
-          `windows shell command: ${redactSensitive(spawnTarget).slice(0, 600)}`,
-        );
+        // Don't log the reconstructed cmd.exe line — it contains the raw
+        // positional args (incl. user prompts). The argv debug line above
+        // already covers the structure via length-only markers.
+        this.logger.debug(`windows shell shim: ${resolved}`);
       } else if (resolved) {
         spawnTarget = resolved;
       }
@@ -226,8 +223,11 @@ export abstract class CliProviderBase implements LlmProvider {
 
     if (opts.stdin !== undefined) {
       child.stdin?.write(opts.stdin);
-      child.stdin?.end();
     }
+    // Always close stdin. codex 0.130+ reads from stdin in `exec` mode and
+    // hangs until EOF; leaving the pipe open turns every spawn into a
+    // 45s-timeout. Other CLIs are unaffected by an immediate close.
+    child.stdin?.end();
     opts.signal?.addEventListener('abort', () => {
       this.logger.warn(
         `Aborting ${cmd} pid=${child.pid ?? '?'} (signal received)`,

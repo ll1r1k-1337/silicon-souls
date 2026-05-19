@@ -165,19 +165,34 @@ export class CodexCliProvider extends CliProviderBase {
         continue;
       }
       sawAnyEvent = true;
+      // codex 0.130 schema: `{ type, item?, message?, ... }`. The old
+      // top-level `msg` envelope (agent_message_delta / task_complete) is
+      // gone. For backwards compat we still look at `msg.type` if present.
       const ev = event as {
+        type?: string;
+        item?: { type?: string; text?: string; message?: string };
+        message?: string;
         msg?: { type?: string; delta?: string; message?: string };
       };
-      const msgType = ev.msg?.type;
-      if (msgType === 'agent_message_delta' && ev.msg?.delta) {
-        yield { type: 'text', text: ev.msg.delta };
-      } else if (msgType === 'agent_message' && ev.msg?.message) {
-        // Final aggregated message: only emit if we haven't seen deltas (unknown here).
-        // Skip to avoid double-output; deltas are the canonical stream.
-      } else if (msgType === 'task_complete') {
+      const topType = ev.type;
+      const legacyType = ev.msg?.type;
+      if (topType === 'item.completed' && ev.item?.type === 'agent_message') {
+        // Codex emits one item.completed per assistant message with the
+        // full text. There are no streaming deltas in 0.130+, so this is
+        // the canonical text event.
+        if (ev.item.text) yield { type: 'text', text: ev.item.text };
+      } else if (topType === 'turn.completed') {
         yield { type: 'finish' };
-      } else if (msgType) {
-        this.logger.debug(`codex event: ${msgType}`);
+      } else if (topType === 'error') {
+        // codex prints transient "Reconnecting..." errors mid-turn that
+        // resolve on their own; don't surface them to the chat.
+        this.logger.debug(`codex error event: ${ev.message ?? '(no message)'}`);
+      } else if (legacyType === 'agent_message_delta' && ev.msg?.delta) {
+        yield { type: 'text', text: ev.msg.delta };
+      } else if (legacyType === 'task_complete') {
+        yield { type: 'finish' };
+      } else if (topType || legacyType) {
+        this.logger.debug(`codex event: ${topType ?? legacyType}`);
       }
     }
 
