@@ -13,7 +13,8 @@ function entrypointPath(): string {
 export class ClaudeCliProvider extends CliProviderBase {
   readonly id: ProviderId = 'claude-cli';
   readonly binaryName = 'claude';
-  readonly installHint = 'Install with: npm install -g @anthropic-ai/claude-code';
+  readonly installHint =
+    'Install with: npm install -g @anthropic-ai/claude-code';
 
   protected envForChild(): NodeJS.ProcessEnv {
     const env = { ...process.env };
@@ -113,13 +114,15 @@ export class ClaudeCliProvider extends CliProviderBase {
       const ev = event as {
         type?: string;
         message?: {
-          content?: Array<{ type: string; text?: string }>;
+          content?: Array<{ type: string; text?: string; thinking?: string }>;
         };
       };
       if (ev.type === 'assistant' && ev.message?.content) {
         for (const part of ev.message.content) {
           if (part.type === 'text' && part.text) {
             yield { type: 'text', text: part.text };
+          } else if (part.type === 'thinking' && part.thinking) {
+            yield { type: 'thinking', thinking: part.thinking };
           }
         }
       } else if (ev.type === 'result') {

@@ -7,6 +7,7 @@ export interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
+  thinking?: string
   agentHandle?: string
   agentName?: string
   candidates?: Candidate[]

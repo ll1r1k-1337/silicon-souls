@@ -98,6 +98,21 @@ async function handleSend(content: string) {
           } catch {
             // skip
           }
+        } else if (prefix === 'g') {
+          try {
+            const text = JSON.parse(payload) as string
+            const idx = messages.value.findIndex((m) => m.id === assistantId)
+            const current = idx !== -1 ? messages.value[idx] : undefined
+            if (current) {
+              messages.value[idx] = {
+                ...current,
+                thinking: (current.thinking ?? '') + text,
+              }
+            }
+            scrollToBottom()
+          } catch {
+            // skip
+          }
         } else if (prefix === '2') {
           try {
             const dataParts = JSON.parse(payload)
