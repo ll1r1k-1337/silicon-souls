@@ -16,16 +16,14 @@ export interface LlmSettings {
 
 @Injectable()
 export class SettingsService {
-  constructor(
-    @Inject(RXDB_DATABASE) private readonly db: SilSolDatabase,
-  ) {}
+  constructor(@Inject(RXDB_DATABASE) private readonly db: SilSolDatabase) {}
 
   async getSettings(): Promise<LlmSettings | null> {
     const doc = await this.db.systemSettings.findOne('llm').exec();
     if (!doc) return null;
     const v = doc.toJSON();
     return {
-      providerType: (v.providerType ?? 'openai') as ProviderType,
+      providerType: v.providerType ?? 'openai',
       baseURL: v.baseURL || undefined,
       apiKey: v.apiKey || undefined,
       modelName: v.modelName,

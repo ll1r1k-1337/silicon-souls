@@ -19,7 +19,7 @@ function resolveWebDist(): string {
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
-  return candidates[0]!;
+  return candidates[0];
 }
 
 @Module({

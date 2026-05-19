@@ -74,7 +74,9 @@ export class ChatSessionStore {
     return new Promise((resolve, reject) => {
       const timeoutHandle = setTimeout(() => {
         session.pendingToolCalls.delete(toolCallId);
-        reject(new Error(`Tool call ${toolName} timed out after ${timeoutMs}ms`));
+        reject(
+          new Error(`Tool call ${toolName} timed out after ${timeoutMs}ms`),
+        );
       }, timeoutMs);
       session.pendingToolCalls.set(toolCallId, {
         resolve,

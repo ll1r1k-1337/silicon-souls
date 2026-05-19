@@ -43,14 +43,10 @@ function toPlain(doc: AgentDoc): SavedAgent {
 
 @Injectable()
 export class AgentsService {
-  constructor(
-    @Inject(RXDB_DATABASE) private readonly db: SilSolDatabase,
-  ) {}
+  constructor(@Inject(RXDB_DATABASE) private readonly db: SilSolDatabase) {}
 
   async findByHandle(handle: string): Promise<SavedAgent | null> {
-    const doc = await this.db.agents
-      .findOne({ selector: { handle } })
-      .exec();
+    const doc = await this.db.agents.findOne({ selector: { handle } }).exec();
     if (!doc) return null;
     const plain = toPlain(doc.toJSON() as AgentDoc);
     return plain.status === 'HIRED' ? plain : null;
@@ -76,9 +72,7 @@ export class AgentsService {
     return true;
   }
 
-  async createCandidates(
-    candidates: CandidateInput[],
-  ): Promise<SavedAgent[]> {
+  async createCandidates(candidates: CandidateInput[]): Promise<SavedAgent[]> {
     const now = Date.now();
     const rows = candidates.map((c) => ({
       id: crypto.randomUUID(),

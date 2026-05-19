@@ -1,10 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AgentsService } from '../../agents/agents.service.js';
 import { ChatSessionStore } from '../../chat/session-store.js';
-import type {
-  LlmTool,
-  ToolCallContext,
-} from '../llm-provider.interface.js';
+import type { LlmTool, ToolCallContext } from '../llm-provider.interface.js';
 import * as crypto from 'node:crypto';
 
 const CANDIDATE_SCHEMA = {
@@ -67,18 +64,12 @@ export class PresentCandidatesTool {
       name: PresentCandidatesTool.NAME,
       description:
         'Present 3 candidate agents to the user for selection. Returns the candidate the user picked.',
-      parametersJsonSchema: CANDIDATE_SCHEMA as unknown as Record<
-        string,
-        unknown
-      >,
+      parametersJsonSchema: CANDIDATE_SCHEMA,
       handler: this.handle.bind(this),
     };
   }
 
-  private async handle(
-    args: unknown,
-    ctx: ToolCallContext,
-  ): Promise<unknown> {
+  private async handle(args: unknown, ctx: ToolCallContext): Promise<unknown> {
     const parsed = args as PresentCandidatesArgs;
     if (
       !parsed ||
