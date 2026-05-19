@@ -1,11 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { AgentsService } from '../agents/agents.service.js';
-import { SettingsService, type LlmSettings } from '../settings/settings.service.js';
+import {
+  SettingsService,
+  type LlmSettings,
+} from '../settings/settings.service.js';
 import { CandidateGeneratorService } from './candidate-generator.service.js';
 import { ChatSessionStore } from './session-store.js';
 import { PresentCandidatesTool } from '../llm/tools/present-candidates.tool.js';
 import { createProvider } from '../llm/llm-provider.factory.js';
-import type { LlmMessage, StreamOptions } from '../llm/llm-provider.interface.js';
+import type {
+  LlmMessage,
+  StreamOptions,
+} from '../llm/llm-provider.interface.js';
 import type { Response } from 'express';
 
 interface ChatMessage {
@@ -75,7 +81,13 @@ export class ChatService {
             res,
           );
         } else {
-          await this.handleHiringRequest(agent, messages, settings, session, res);
+          await this.handleHiringRequest(
+            agent,
+            messages,
+            settings,
+            session,
+            res,
+          );
         }
         return;
       }
@@ -138,6 +150,8 @@ When the user asks you to find, recruit, or hire someone, you MUST call the pres
     for await (const chunk of provider.stream(streamOpts)) {
       if (chunk.type === 'text' && chunk.text) {
         res.write(`0:${JSON.stringify(chunk.text)}\n`);
+      } else if (chunk.type === 'thinking' && chunk.thinking) {
+        res.write(`g:${JSON.stringify(chunk.thinking)}\n`);
       } else if (chunk.type === 'error' && chunk.error) {
         res.write(`0:${JSON.stringify(`\n⚠️ ${chunk.error}\n`)}\n`);
       }
@@ -150,7 +164,10 @@ When the user asks you to find, recruit, or hire someone, you MUST call the pres
     settings: LlmSettings,
     res: Response,
   ): Promise<void> {
-    const result = await this.candidateGenerator.generate(userMessage, settings);
+    const result = await this.candidateGenerator.generate(
+      userMessage,
+      settings,
+    );
 
     const words = result.replyMessage.split(' ');
     for (let i = 0; i < words.length; i++) {
@@ -191,6 +208,8 @@ When the user asks you to find, recruit, or hire someone, you MUST call the pres
     for await (const chunk of provider.stream(streamOpts)) {
       if (chunk.type === 'text' && chunk.text) {
         res.write(`0:${JSON.stringify(chunk.text)}\n`);
+      } else if (chunk.type === 'thinking' && chunk.thinking) {
+        res.write(`g:${JSON.stringify(chunk.thinking)}\n`);
       } else if (chunk.type === 'error' && chunk.error) {
         res.write(`0:${JSON.stringify(`\n⚠️ ${chunk.error}\n`)}\n`);
       }

@@ -26,8 +26,9 @@ export interface LlmTool extends LlmToolDefinition {
 }
 
 export interface StreamChunk {
-  type: 'text' | 'tool-call' | 'tool-result' | 'finish' | 'error';
+  type: 'text' | 'thinking' | 'tool-call' | 'tool-result' | 'finish' | 'error';
   text?: string;
+  thinking?: string;
   toolName?: string;
   toolArgs?: unknown;
   toolResult?: unknown;

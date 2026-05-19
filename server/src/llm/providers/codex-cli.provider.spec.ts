@@ -471,6 +471,36 @@ describe('CodexCliProvider', () => {
       ]);
     });
 
+    it('translates an item.completed reasoning into a thinking chunk', async () => {
+      const p = new CodexCliProvider(settings());
+      spyRunChild(p, () =>
+        makeHandle({
+          lines: [
+            JSON.stringify({
+              type: 'item.completed',
+              item: { type: 'reasoning', text: 'pondering...' },
+            }),
+            JSON.stringify({
+              type: 'item.completed',
+              item: { type: 'agent_message', text: 'final answer' },
+            }),
+            JSON.stringify({ type: 'turn.completed' }),
+          ],
+        }),
+      );
+      const chunks = await collect(
+        p.stream({
+          sessionId: 's',
+          messages: [{ role: 'user', content: 'x' }],
+        }),
+      );
+      expect(chunks).toEqual([
+        { type: 'thinking', thinking: 'pondering...' },
+        { type: 'text', text: 'final answer' },
+        { type: 'finish' },
+      ]);
+    });
+
     it('ignores transient error events emitted mid-turn', async () => {
       const p = new CodexCliProvider(settings());
       spyRunChild(p, () =>

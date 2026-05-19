@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { Message } from '@/types'
 
 const props = defineProps<{
@@ -6,6 +7,7 @@ const props = defineProps<{
 }>()
 
 const isUser = props.message.role === 'user'
+const thinkingOpen = ref(true)
 
 // Simple color assignment based on agent handle
 function agentColor(handle?: string): string {
@@ -47,7 +49,26 @@ function agentColor(handle?: string): string {
         <span class="text-[var(--color-text-muted)]">@{{ message.agentHandle }}</span>
       </div>
 
+      <!-- Thinking panel -->
+      <div v-if="!isUser && message.thinking" class="mb-1.5">
+        <button
+          type="button"
+          class="text-xs text-[var(--color-text-muted)] flex items-center gap-1 hover:text-[var(--color-text)] transition-colors cursor-pointer"
+          @click="thinkingOpen = !thinkingOpen"
+        >
+          <span>{{ thinkingOpen ? '▾' : '▸' }}</span>
+          <span>Thinking{{ !message.content ? '…' : '' }}</span>
+        </button>
+        <div
+          v-if="thinkingOpen"
+          class="mt-1 px-3 py-2 rounded-lg glass text-xs italic text-[var(--color-text-muted)] whitespace-pre-wrap break-words"
+        >
+          {{ message.thinking }}
+        </div>
+      </div>
+
       <div
+        v-if="message.content || isUser"
         class="px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words"
         :class="
           isUser

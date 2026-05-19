@@ -176,7 +176,12 @@ export class CodexCliProvider extends CliProviderBase {
       };
       const topType = ev.type;
       const legacyType = ev.msg?.type;
-      if (topType === 'item.completed' && ev.item?.type === 'agent_message') {
+      if (topType === 'item.completed' && ev.item?.type === 'reasoning') {
+        if (ev.item.text) yield { type: 'thinking', thinking: ev.item.text };
+      } else if (
+        topType === 'item.completed' &&
+        ev.item?.type === 'agent_message'
+      ) {
         // Codex emits one item.completed per assistant message with the
         // full text. There are no streaming deltas in 0.130+, so this is
         // the canonical text event.
