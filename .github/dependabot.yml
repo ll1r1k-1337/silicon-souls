@@ -1,0 +1,74 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /server
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - server
+    groups:
+      nestjs:
+        patterns:
+          - '@nestjs/*'
+      langchain:
+        patterns:
+          - '@langchain/*'
+      types:
+        patterns:
+          - '@types/*'
+      eslint:
+        patterns:
+          - 'eslint*'
+          - '@eslint/*'
+          - 'typescript-eslint'
+          - 'prettier*'
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - web
+    groups:
+      vue:
+        patterns:
+          - 'vue'
+          - '@vue/*'
+          - 'vue-tsc'
+          - '@vitejs/*'
+          - 'vite*'
+      ai-sdk:
+        patterns:
+          - 'ai'
+          - '@ai-sdk/*'
+      tailwind:
+        patterns:
+          - 'tailwindcss'
+          - '@tailwindcss/*'
+      types:
+        patterns:
+          - '@types/*'
+          - '@tsconfig/*'
+      lint:
+        patterns:
+          - 'eslint*'
+          - 'oxlint*'
+          - 'prettier*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+    labels:
+      - dependencies
+      - github-actions
