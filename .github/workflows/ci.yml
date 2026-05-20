@@ -32,8 +32,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Check-only lint (no --fix) so the gate fails on any violation,
+      # including autofixable ones, instead of silently rewriting files.
       - name: Lint
-        run: npm run lint
+        run: npm run lint:ci
 
       - name: Build
         run: npm run build
@@ -66,8 +68,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Check-only lint (no --fix) so the gate fails on any violation,
+      # including autofixable ones, instead of silently rewriting files.
       - name: Lint
-        run: npm run lint
+        run: npm run lint:ci
 
       - name: Type-check
         run: npm run type-check
