@@ -30,9 +30,7 @@ Guidelines:
   exports: [rxdbProvider],
 })
 export class DatabaseModule implements OnModuleInit, OnModuleDestroy {
-  constructor(
-    @Inject(RXDB_DATABASE) private readonly db: SilSolDatabase,
-  ) {}
+  constructor(@Inject(RXDB_DATABASE) private readonly db: SilSolDatabase) {}
 
   async onModuleInit(): Promise<void> {
     const existing = await this.db.agents

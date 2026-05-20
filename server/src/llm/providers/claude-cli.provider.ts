@@ -55,7 +55,6 @@ export class ClaudeCliProvider extends CliProviderBase {
   }
 
   async *stream(opts: StreamOptions): AsyncIterable<StreamChunk> {
-    const sessionToken = opts.sessionId; // session store provides token via callback below
     const token = (opts as StreamOptions & { _token?: string })._token ?? '';
     const port = process.env.PORT ?? '3000';
     const apiBase = `http://127.0.0.1:${port}`;

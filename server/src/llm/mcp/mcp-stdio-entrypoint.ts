@@ -94,9 +94,9 @@ async function main(): Promise<void> {
     { capabilities: { tools: {} } },
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: TOOLS,
-  }));
+  server.setRequestHandler(ListToolsRequestSchema, () =>
+    Promise.resolve({ tools: TOOLS }),
+  );
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const { name, arguments: args } = req.params;
@@ -131,6 +131,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  process.stderr.write(`mcp-stdio-entrypoint fatal: ${(err as Error).stack ?? err}\n`);
+  process.stderr.write(
+    `mcp-stdio-entrypoint fatal: ${(err as Error).stack ?? err}\n`,
+  );
   process.exit(1);
 });

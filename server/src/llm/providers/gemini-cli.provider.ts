@@ -22,7 +22,8 @@ export class GeminiCliProvider extends CliProviderBase {
   }> {
     return new Promise((resolve) => {
       const args = ['-p', 'reply with the word ok'];
-      if (this.settings.modelName) args.push('--model', this.settings.modelName);
+      if (this.settings.modelName)
+        args.push('--model', this.settings.modelName);
       const handle = this.runChild('gemini', args);
       const timeout = setTimeout(() => {
         handle.child.kill('SIGTERM');
@@ -33,7 +34,10 @@ export class GeminiCliProvider extends CliProviderBase {
         if (code === 0) {
           resolve({ success: true, message: 'Gemini CLI reachable.' });
         } else {
-          resolve({ success: false, message: `gemini exited with code ${code}` });
+          resolve({
+            success: false,
+            message: `gemini exited with code ${code}`,
+          });
         }
       });
       handle.child.on('error', (err) => {

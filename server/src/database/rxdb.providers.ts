@@ -6,6 +6,7 @@ import {
   addRxPlugin,
   type RxDatabase,
   type RxCollection,
+  type RxDumpDatabaseAny,
 } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { RxDBJsonDumpPlugin } from 'rxdb/plugins/json-dump';
@@ -28,8 +29,7 @@ export type SilSolDatabase = RxDatabase<Collections>;
 
 export function getDataDir(): string {
   return (
-    process.env.SILICON_SOULS_HOME ??
-    path.join(os.homedir(), '.silicon-souls')
+    process.env.SILICON_SOULS_HOME ?? path.join(os.homedir(), '.silicon-souls')
   );
 }
 
@@ -43,7 +43,7 @@ async function loadDump(db: SilSolDatabase): Promise<void> {
   try {
     const raw = await fs.promises.readFile(file, 'utf8');
     if (!raw.trim()) return;
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as RxDumpDatabaseAny<Collections>;
     await db.importJSON(parsed);
     console.log(`📂 Loaded database from ${file}`);
   } catch (err) {

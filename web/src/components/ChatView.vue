@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
-import Timeline from './Timeline.vue'
+import ChatTimeline from './ChatTimeline.vue'
 import ChatInput from './ChatInput.vue'
 import { useAgents } from '@/composables/useAgents'
 import type { Message } from '@/types'
@@ -230,7 +230,7 @@ async function handleHire(candidateId: string) {
 <template>
   <div class="flex flex-col h-full w-full">
     <div ref="timelineRef" class="flex-1 overflow-y-auto">
-      <Timeline :messages="messages" @hire="handleHire" />
+      <ChatTimeline :messages="messages" @hire="handleHire" />
 
       <div v-if="isLoading" class="px-6 pb-4">
         <div class="flex items-center gap-2 text-[var(--color-text-muted)] text-sm">
